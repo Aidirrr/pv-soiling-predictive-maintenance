@@ -134,7 +134,24 @@ git clone https://github.com/Aidirrr/pv-soiling-predictive-maintenance.git
 cd pv-soiling-predictive-maintenance
 ```
 
-### 2. Execute the Pipeline
+### 2. Launch the Interactive Dashboard
+Open `dashboard.html` in any modern browser to access the full interactive web dashboard:
+```bash
+open dashboard.html        # macOS
+xdg-open dashboard.html    # Linux
+start dashboard.html       # Windows
+```
+
+The dashboard features:
+- 🎛️ **Live Predictor** — Adjust environmental sliders and get real-time power predictions from all 3 trained models
+- 📊 **Interactive Charts** — Clean vs dusty power curves, soiling loss timeline, scatter plots, histograms
+- 🏆 **Model Comparison** — Full Table 6.1 & 6.2 from the report with visual bar charts
+- 🚨 **Maintenance Alerts** — Condition-based cleaning recommendations based on predicted soiling loss
+- 🔍 **Data Explorer** — Search, filter, and browse all 2,262 daytime operational observations
+
+> **Note:** The dashboard loads the CSV file and trains all models **directly in your browser** using pure JavaScript — no server, no installations, no internet required.
+
+### 3. Execute the CLI Training Pipeline
 Run the training, cross-validation, and evaluation runner with standard Python (3.8+):
 ```bash
 python3 train_evaluate.py

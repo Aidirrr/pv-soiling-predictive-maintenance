@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PV Soiling Predictive Maintenance Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --accent: #38bdf8; --accent2: #22d3ee; --green: #34d399;
+    --red: #f87171; --orange: #fb923c; --yellow: #fbbf24;
+    --text: #f1f5f9; --text2: #94a3b8; --border: #475569;
+    --gradient: linear-gradient(135deg, #0ea5e9, #6366f1);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* HEADER */
+  .header { background:var(--gradient); padding:24px 32px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+  .header .logo { font-size:28px; }
+  .header h1 { font-size:22px; font-weight:700; letter-spacing:-0.5px; }
+  .header p { font-size:13px; opacity:0.85; width:100%; }
+  .header .badge { background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; }
+
+  /* NAV TABS */
+  .tabs { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 16px; overflow-x:auto; }
+  .tab { padding:14px 20px; cursor:pointer; font-size:14px; font-weight:500; color:var(--text2); border-bottom:3px solid transparent; transition:all .2s; white-space:nowrap; }
+  .tab:hover { color:var(--text); background:var(--surface2); }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  /* MAIN LAYOUT */
+  .main { padding:24px; max-width:1400px; margin:0 auto; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+
+  /* CARDS */
+  .grid { display:grid; gap:20px; }
+  .grid-4 { grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); }
+  .grid-2 { grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); }
+  .grid-3 { grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; }
+  .card h3 { font-size:14px; color:var(--text2); font-weight:500; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+  .card .value { font-size:32px; font-weight:700; }
+  .card .sub { font-size:12px; color:var(--text2); margin-top:4px; }
+
+  /* STAT COLORS */
+  .stat-blue .value { color:var(--accent); }
+  .stat-green .value { color:var(--green); }
+  .stat-orange .value { color:var(--orange); }
+  .stat-red .value { color:var(--red); }
+
+  /* PREDICTION PANEL */
+  .predict-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  @media(max-width:800px) { .predict-grid { grid-template-columns:1fr; } }
+  .slider-group { margin-bottom:16px; }
+  .slider-group label { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; color:var(--text2); }
+  .slider-group label span:last-child { color:var(--accent); font-weight:600; font-family:monospace; }
+  input[type=range] { width:100%; accent-color:var(--accent); cursor:pointer; height:6px; -webkit-appearance:none; background:var(--surface2); border-radius:3px; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg); }
+
+  .result-card { text-align:center; padding:28px; border-radius:12px; }
+  .result-card.normal { background:linear-gradient(135deg, #065f46, #064e3b); border:1px solid #10b981; }
+  .result-card.warning { background:linear-gradient(135deg, #92400e, #78350f); border:1px solid #f59e0b; }
+  .result-card.critical { background:linear-gradient(135deg, #991b1b, #7f1d1d); border:1px solid #ef4444; }
+  .result-card .big { font-size:48px; font-weight:800; }
+  .result-card .label { font-size:13px; opacity:0.8; margin-top:4px; }
+
+  .alert-banner { padding:16px 20px; border-radius:10px; margin-top:16px; display:flex; align-items:center; gap:12px; font-size:14px; }
+  .alert-banner.ok { background:#064e3b; border:1px solid #10b981; color:#6ee7b7; }
+  .alert-banner.warn { background:#78350f; border:1px solid #f59e0b; color:#fde68a; }
+  .alert-banner.crit { background:#7f1d1d; border:1px solid #ef4444; color:#fca5a5; }
+  .alert-icon { font-size:24px; }
+
+  /* CHART CONTAINERS */
+  .chart-box { position:relative; }
+  canvas { width:100% !important; border-radius:8px; }
+
+  /* TABLE */
+  .data-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .data-table th { background:var(--surface2); padding:10px 14px; text-align:left; font-weight:600; color:var(--text2); text-transform:uppercase; font-size:11px; letter-spacing:0.5px; position:sticky; top:0; }
+  .data-table td { padding:8px 14px; border-bottom:1px solid var(--border); }
+  .data-table tr:hover td { background:rgba(56,189,248,0.05); }
+  .table-wrap { max-height:500px; overflow-y:auto; border-radius:12px; border:1px solid var(--border); }
+
+  /* MODEL COMPARISON TABLE */
+  .model-table { width:100%; border-collapse:collapse; }
+  .model-table th, .model-table td { padding:12px 16px; text-align:left; border-bottom:1px solid var(--border); }
+  .model-table th { background:var(--surface2); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); }
+  .model-table tr.best td { background:rgba(52,211,153,0.1); }
+  .model-table .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+  .tag-best { background:#065f46; color:#34d399; }
+  .tag-base { background:#1e293b; color:#94a3b8; }
+
+  /* BAR CHART CSS */
+  .bar-chart { display:flex; flex-direction:column; gap:10px; }
+  .bar-row { display:flex; align-items:center; gap:12px; }
+  .bar-label { width:130px; font-size:13px; color:var(--text2); text-align:right; flex-shrink:0; }
+  .bar-track { flex:1; height:28px; background:var(--surface2); border-radius:6px; overflow:hidden; position:relative; }
+  .bar-fill { height:100%; border-radius:6px; display:flex; align-items:center; padding-left:10px; font-size:12px; font-weight:600; transition:width 1s ease; }
+  .bar-fill.c1 { background:linear-gradient(90deg,#0ea5e9,#38bdf8); }
+  .bar-fill.c2 { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
+  .bar-fill.c3 { background:linear-gradient(90deg,#10b981,#34d399); }
+  .bar-fill.c4 { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+
+  /* FOOTER */
+  .footer { text-align:center; padding:24px; color:var(--text2); font-size:12px; border-top:1px solid var(--border); margin-top:40px; }
+
+  /* LOADING */
+  .loading { text-align:center; padding:60px; color:var(--text2); }
+  .spinner { display:inline-block; width:40px; height:40px; border:4px solid var(--surface2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* GAUGE */
+  .gauge-wrap { display:flex; justify-content:center; margin:16px 0; }
+
+  /* Tooltip */
+  .tooltip { position:relative; cursor:help; }
+  .tooltip::after { content:attr(data-tip); position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:var(--surface2); color:var(--text); padding:6px 10px; border-radius:6px; font-size:11px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .tooltip:hover::after { opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <span class="logo">☀️</span>
+  <div>
+    <h1>PV Soiling Predictive Maintenance Dashboard</h1>
+    <p>Dust-Induced Performance Degradation Modeling · Laghouat, Algeria · TEB3123 Machine Learning Group 15</p>
+  </div>
+  <span class="badge">SDG 7 — Clean Energy</span>
+  <span class="badge">UTP Sep 2026</span>
+</div>
+
+<!-- NAVIGATION -->
+<div class="tabs">
+  <div class="tab active" data-panel="overview">📊 Overview</div>
+  <div class="tab" data-panel="predict">🎛️ Live Predictor</div>
+  <div class="tab" data-panel="models">🏆 Model Comparison</div>
+  <div class="tab" data-panel="charts">📈 Analytics</div>
+  <div class="tab" data-panel="explorer">🔍 Data Explorer</div>
+</div>
+
+<div class="main">
+
+  <!-- LOADING -->
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading dataset & training models…</p>
+  </div>
+
+  <!-- ========== PANEL 1: OVERVIEW ========== -->
+  <div id="p-overview" class="panel">
+    <div class="grid grid-4" style="margin-bottom:24px;">
+      <div class="card stat-blue">
+        <h3>Dataset Size</h3>
+        <div class="value" id="s-total">—</div>
+        <div class="sub">Daytime operational hours</div>
+      </div>
+      <div class="card stat-green">
+        <h3>Best Model R²</h3>
+        <div class="value" id="s-r2">—</div>
+        <div class="sub">XGBoost on held-out test</div>
+      </div>
+      <div class="card stat-orange">
+        <h3>Best MAE</h3>
+        <div class="value" id="s-mae">—</div>
+        <div class="sub">Watts prediction error</div>
+      </div>
+      <div class="card stat-red">
+        <h3>Peak Soiling Loss</h3>
+        <div class="value" id="s-loss">—</div>
+        <div class="sub">Max ΔP at peak irradiance</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>📊 Feature Importance (XGBoost Gain %)</h3>
+        <div id="feat-bars" class="bar-chart" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <h3>⚡ Model Performance Snapshot</h3>
+        <div id="perf-bars" class="bar-chart" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>🏗️ System Architecture</h3>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; justify-content:center;">
+        <div style="background:var(--surface2); padding:14px 20px; border-radius:8px; text-align:center; min-width:130px;">
+          <div style="font-size:24px;">📡</div>
+          <div style="font-size:12px; margin-top:4px;">Sensor Data<br>Ingestion</div>
+        </div>
+        <div style="font-size:24px; color:var(--accent); display:flex; align-items:center;">→</div>
+        <div style="background:var(--surface2); padding:14px 20px; border-radius:8px; text-align:center; min-width:130px;">
+          <div style="font-size:24px;">🧹</div>
+          <div style="font-size:12px; margin-top:4px;">Preprocessing<br>& Cleaning</div>
+        </div>
+        <div style="font-size:24px; color:var(--accent); display:flex; align-items:center;">→</div>
+        <div style="background:var(--surface2); padding:14px 20px; border-radius:8px; text-align:center; min-width:130px;">
+          <div style="font-size:24px;">🔧</div>
+          <div style="font-size:12px; margin-top:4px;">Feature<br>Engineering</div>
+        </div>
+        <div style="font-size:24px; color:var(--accent); display:flex; align-items:center;">→</div>
+        <div style="background:var(--surface2); padding:14px 20px; border-radius:8px; text-align:center; min-width:130px;">
+          <div style="font-size:24px;">🤖</div>
+          <div style="font-size:12px; margin-top:4px;">XGBoost<br>Model</div>
+        </div>
+        <div style="font-size:24px; color:var(--accent); display:flex; align-items:center;">→</div>
+        <div style="background:var(--surface2); padding:14px 20px; border-radius:8px; text-align:center; min-width:130px;">
+          <div style="font-size:24px;">🚨</div>
+          <div style="font-size:12px; margin-top:4px;">Maintenance<br>Alert</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL 2: LIVE PREDICTOR ========== -->
+  <div id="p-predict" class="panel">
+    <div class="predict-grid">
+      <div class="card">
+        <h3>🎛️ Adjust Environmental Conditions</h3>
+        <div style="margin-top:16px;">
+          <div class="slider-group">
+            <label>Solar Irradiance (G_POA) <span id="v-gpoa">500 W/m²</span></label>
+            <input type="range" id="sl-gpoa" min="10" max="1100" value="500" step="5">
+          </div>
+          <div class="slider-group">
+            <label>Ambient Temperature <span id="v-tamb">30 °C</span></label>
+            <input type="range" id="sl-tamb" min="0" max="55" value="30" step="0.5">
+          </div>
+          <div class="slider-group">
+            <label>Cell Temperature <span id="v-tcell">45 °C</span></label>
+            <input type="range" id="sl-tcell" min="5" max="75" value="45" step="0.5">
+          </div>
+          <div class="slider-group">
+            <label>Relative Humidity <span id="v-rh">35 %</span></label>
+            <input type="range" id="sl-rh" min="5" max="100" value="35" step="1">
+          </div>
+          <div class="slider-group">
+            <label>Wind Speed <span id="v-ws">3.0 m/s</span></label>
+            <input type="range" id="sl-ws" min="0" max="15" value="3" step="0.1">
+          </div>
+          <div class="slider-group">
+            <label>Cloud Cover <span id="v-cc">10 %</span></label>
+            <input type="range" id="sl-cc" min="0" max="100" value="10" step="1">
+          </div>
+          <div class="slider-group">
+            <label>Dust Density (PCHIP) <span id="v-dust">8.0 g/m²</span></label>
+            <input type="range" id="sl-dust" min="0" max="35" value="8" step="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="result-card normal" id="rc-dusty">
+            <div class="label">Predicted Dusty Power</div>
+            <div class="big" id="pred-dusty">—</div>
+            <div class="label">Watts (P_dusty)</div>
+          </div>
+          <div class="result-card" id="rc-loss" style="background:var(--surface); border:1px solid var(--border);">
+            <div class="label">Estimated Soiling Loss</div>
+            <div class="big" id="pred-loss" style="color:var(--orange);">—</div>
+            <div class="label">Watts (ΔP = P_clean − P_dusty)</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <h3>Model Predictions Comparison</h3>
+          <div style="margin-top:12px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span style="font-size:13px; color:var(--text2);">Ridge Linear Regression</span>
+              <span style="font-weight:700; font-family:monospace;" id="pred-lr">—</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span style="font-size:13px; color:var(--text2);">Random Forest (30 trees)</span>
+              <span style="font-weight:700; font-family:monospace;" id="pred-rf">—</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+              <span style="font-size:13px; color:var(--text2);">XGBoost (40 rounds) ⭐</span>
+              <span style="font-weight:700; font-family:monospace; color:var(--green);" id="pred-xgb">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert-banner ok" id="maint-alert">
+          <span class="alert-icon">✅</span>
+          <div>
+            <strong>Panel Status: Normal</strong>
+            <div style="font-size:12px; margin-top:2px;">Soiling loss within acceptable range. No cleaning required.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL 3: MODEL COMPARISON ========== -->
+  <div id="p-models" class="panel">
+    <div class="card" style="margin-bottom:20px;">
+      <h3>🏆 Table 6.1 — Quantitative Model Performance Comparison</h3>
+      <div class="table-wrap" style="margin-top:12px;">
+        <table class="model-table" id="model-perf-table">
+          <thead>
+            <tr><th>Model</th><th>Set</th><th>MAE (W)</th><th>RMSE (W)</th><th>R²</th><th>Tag</th></tr>
+          </thead>
+          <tbody id="model-perf-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>📊 MAE Comparison (Test Set)</h3>
+        <div id="mae-comp-bars" class="bar-chart" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <h3>📊 R² Score Comparison (Test Set)</h3>
+        <div id="r2-comp-bars" class="bar-chart" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3>📋 Table 6.2 — Subgroup Operational Breakdown</h3>
+      <div class="table-wrap" style="margin-top:12px;">
+        <table class="model-table" id="subgroup-table">
+          <thead>
+            <tr><th>Subgroup</th><th>Count</th><th>LR MAE</th><th>LR RMSE</th><th>XGB MAE</th><th>XGB RMSE</th></tr>
+          </thead>
+          <tbody id="subgroup-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PANEL 4: ANALYTICS ========== -->
+  <div id="p-charts" class="panel">
+    <div class="grid grid-2">
+      <div class="card chart-box">
+        <h3>☀️ Clean vs Dusty Power Output (Hourly)</h3>
+        <canvas id="chart-power" height="300"></canvas>
+      </div>
+      <div class="card chart-box">
+        <h3>🌫️ Soiling Loss Over Time (ΔP = P_clean − P_dusty)</h3>
+        <canvas id="chart-loss" height="300"></canvas>
+      </div>
+    </div>
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card chart-box">
+        <h3>🌡️ Temperature Gradient vs Power</h3>
+        <canvas id="chart-scatter" height="300"></canvas>
+      </div>
+      <div class="card chart-box">
+        <h3>🌧️ Dust Density Distribution</h3>
+        <canvas id="chart-dust-hist" height="300"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px;">
+      <h3>📈 Irradiance vs Power Correlation</h3>
+      <canvas id="chart-irr-power" height="280"></canvas>
+    </div>
+  </div>
+
+  <!-- ========== PANEL 5: DATA EXPLORER ========== -->
+  <div id="p-explorer" class="panel">
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <h3 style="margin:0;">🔍 Dataset Explorer</h3>
+        <input type="text" id="search-box" placeholder="Search by datetime..." style="flex:1; min-width:200px; padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:13px; outline:none;">
+        <select id="filter-irr" style="padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:13px;">
+          <option value="all">All Irradiance</option>
+          <option value="low">Low (≤200 W/m²)</option>
+          <option value="med">Medium (200–600)</option>
+          <option value="high">High (>600)</option>
+        </select>
+        <span id="row-count" style="font-size:12px; color:var(--text2);">0 rows</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap" id="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Datetime</th><th>G_POA</th><th>T_amb</th><th>T_cell</th><th>RH</th><th>Wind</th><th>Cloud</th><th>Dust</th><th>P_clean</th><th>P_dusty</th><th>ΔP</th></tr>
+          </thead>
+          <tbody id="data-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>TEB3123 Machine Learning — Group 15 · Universiti Teknologi PETRONAS · September 2026</p>
+  <p style="margin-top:4px;">Muhammad Khaidhir Bin Mohd Razin (22007399) · Nor Amirah Syahida Binti Baharuddin (22007850)</p>
+</div>
+
+<script>
+// ===========================================================================
+// PURE JS ML MODELS (mirrors train_evaluate.py logic)
+// ===========================================================================
+
+// ---- Data storage ----
+let rawData = [];
+let daytimeData = [];
+let X_train = [], y_train = [], X_test = [], y_test = [];
+let meta_test = [];
+let trainedModels = {};
+
+// ---- Tab Navigation ----
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('p-' + tab.dataset.panel).classList.add('active');
+  });
+});
+
+// ---- Load CSV ----
+async function loadCSV() {
+  try {
+    const resp = await fetch('Laghouat_2022_final-2.csv');
+    const text = await resp.text();
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',');
+    rawData = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',');
+      if (vals.length < headers.length) continue;
+      let row = {};
+      headers.forEach((h, j) => row[h.trim()] = vals[j].trim());
+      rawData.push(row);
+    }
+    return true;
+  } catch(e) {
+    // Fallback: try to load via file input
+    document.getElementById('loading').innerHTML = `
+      <p style="color:var(--red); margin-bottom:16px;">⚠️ Could not auto-load CSV. Please select the dataset file:</p>
+      <input type="file" id="file-input" accept=".csv" style="padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text);">
+    `;
+    return new Promise(resolve => {
+      document.getElementById('file-input').addEventListener('change', async (ev) => {
+        const file = ev.target.files[0];
+        const text = await file.text();
+        const lines = text.trim().split('\n');
+        const headers = lines[0].split(',');
+        rawData = [];
+        for (let i = 1; i < lines.length; i++) {
+          const vals = lines[i].split(',');
+          if (vals.length < headers.length) continue;
+          let row = {};
+          headers.forEach((h, j) => row[h.trim()] = vals[j].trim());
+          rawData.push(row);
+        }
+        resolve(true);
+      });
+    });
+  }
+}
+
+function preprocessData() {
+  // Daytime filter: G_POA > 10
+  daytimeData = rawData.filter(r => parseFloat(r['G_POA_Wm2']) > 10);
+
+  let X = [], y = [], meta = [];
+  daytimeData.forEach(r => {
+    const g = parseFloat(r['G_POA_Wm2']);
+    const t_amb = parseFloat(r['temp_amb_C']);
+    const t_cell = parseFloat(r['T_cell_C']);
+    const rh = parseFloat(r['RH_pct']);
+    const ws = parseFloat(r['wind_speed_ms']);
+    const cc = parseFloat(r['cloud_cover_pct']);
+    const dust = parseFloat(r['dust_density_reconstructed_PCHIP_gm2']);
+    const delta_t = t_cell - t_amb;
+    const p_dusty = parseFloat(r['P_dusty_W']);
+    const p_clean = parseFloat(r['P_clean_W']);
+    X.push([g, t_amb, t_cell, rh, ws, cc, dust, delta_t]);
+    y.push(p_dusty);
+    meta.push({ datetime: r['datetime'], P_clean: p_clean, G_POA: g, T_cell: t_cell, dust: dust });
+  });
+
+  const n = X.length;
+  const nTrain = Math.floor(n * 0.7);
+  X_train = X.slice(0, nTrain);
+  y_train = y.slice(0, nTrain);
+  X_test = X.slice(nTrain);
+  y_test = y.slice(nTrain);
+  meta_test = meta.slice(nTrain);
+}
+
+// ---- Ridge Linear Regression ----
+class RidgeRegression {
+  constructor(alpha = 1.0) { this.alpha = alpha; this.weights = null; this.means = null; this.stds = null; }
+
+  fit(X, y) {
+    const n = X.length, d = X[0].length;
+    this.means = Array(d).fill(0);
+    this.stds = Array(d).fill(0);
+    for (let i = 0; i < d; i++) {
+      let s = 0; for (let k = 0; k < n; k++) s += X[k][i]; this.means[i] = s / n;
+      let v = 0; for (let k = 0; k < n; k++) v += (X[k][i] - this.means[i]) ** 2;
+      this.stds[i] = n > 1 ? Math.sqrt(v / (n - 1)) : 1;
+      if (this.stds[i] < 1e-6) this.stds[i] = 1;
+    }
+    // Scale
+    const Xb = X.map(row => [1, ...row.map((v, i) => (v - this.means[i]) / this.stds[i])]);
+    const dim = d + 1;
+    // XTX
+    const XTX = Array.from({length: dim}, (_, i) => Array.from({length: dim}, (_, j) => {
+      let s = 0; for (let k = 0; k < n; k++) s += Xb[k][i] * Xb[k][j]; return s;
+    }));
+    for (let i = 1; i < dim; i++) XTX[i][i] += this.alpha;
+    const XTy = Array.from({length: dim}, (_, i) => { let s = 0; for (let k = 0; k < n; k++) s += Xb[k][i] * y[k]; return s; });
+    // Gauss-Jordan
+    const aug = XTX.map((row, i) => [...row, XTy[i]]);
+    for (let i = 0; i < dim; i++) {
+      const piv = aug[i][i];
+      for (let j = i; j <= dim; j++) aug[i][j] /= piv;
+      for (let k = 0; k < dim; k++) {
+        if (k !== i) { const f = aug[k][i]; for (let j = i; j <= dim; j++) aug[k][j] -= f * aug[i][j]; }
+      }
+    }
+    this.weights = aug.map(row => row[dim]);
+    return this;
+  }
+
+  predict(X) {
+    return X.map(row => {
+      const scaled = [1, ...row.map((v, i) => (v - this.means[i]) / this.stds[i])];
+      return scaled.reduce((s, v, i) => s + v * this.weights[i], 0);
+    });
+  }
+
+  predictOne(x) { return this.predict([x])[0]; }
+}
+
+// ---- Decision Tree ----
+class TreeNode {
+  constructor() { this.feat = null; this.thresh = null; this.val = 0; this.left = null; this.right = null; this.gain = 0; }
+}
+
+class RegressionTree {
+  constructor(maxDepth = 5, minSplit = 10) { this.maxDepth = maxDepth; this.minSplit = minSplit; this.root = null; }
+
+  fit(X, y, sampleFeats = null) {
+    const build = (sX, sY, d) => {
+      const node = new TreeNode();
+      node.val = sY.reduce((a, b) => a + b, 0) / sY.length;
+      if (d >= this.maxDepth || sY.length < this.minSplit) return node;
+
+      let bestFeat = -1, bestThresh = 0, bestSSE = Infinity;
+      const feats = sampleFeats || Array.from({length: sX[0].length}, (_, i) => i);
+      const baseSSE = sY.reduce((s, v) => s + (v - node.val) ** 2, 0);
+
+      for (const f of feats) {
+        const vals = [...new Set(sX.map(r => r[f]))].sort((a, b) => a - b);
+        if (vals.length <= 1) continue;
+        const step = Math.max(1, Math.floor(vals.length / 15));
+        for (let si = step; si < vals.length; si += step) {
+          const thresh = vals[si];
+          const ly = [], ry = [];
+          for (let i = 0; i < sY.length; i++) { (sX[i][f] <= thresh ? ly : ry).push(sY[i]); }
+          if (!ly.length || !ry.length) continue;
+          const ml = ly.reduce((a, b) => a + b) / ly.length;
+          const mr = ry.reduce((a, b) => a + b) / ry.length;
+          const sse = ly.reduce((s, v) => s + (v - ml) ** 2, 0) + ry.reduce((s, v) => s + (v - mr) ** 2, 0);
+          if (sse < bestSSE) { bestSSE = sse; bestFeat = f; bestThresh = thresh; }
+        }
+      }
+      if (bestFeat < 0) return node;
+      node.feat = bestFeat; node.thresh = bestThresh; node.gain = Math.max(0, baseSSE - bestSSE);
+      const li = [], ri = [];
+      for (let i = 0; i < sX.length; i++) { (sX[i][bestFeat] <= bestThresh ? li : ri).push(i); }
+      node.left = build(li.map(i => sX[i]), li.map(i => sY[i]), d + 1);
+      node.right = build(ri.map(i => sX[i]), ri.map(i => sY[i]), d + 1);
+      return node;
+    };
+    this.root = build(X, y, 0);
+    return this;
+  }
+
+  predictRow(row, node) {
+    if (!node || node.left === null) return node.val;
+    return row[node.feat] <= node.thresh ? this.predictRow(row, node.left) : this.predictRow(row, node.right);
+  }
+
+  predict(X) { return X.map(r => this.predictRow(r, this.root)); }
+}
+
+// ---- Random Forest ----
+class RandomForest {
+  constructor(nTrees = 30, maxDepth = 7, minSplit = 8, maxFeats = 4) {
+    this.nTrees = nTrees; this.maxDepth = maxDepth; this.minSplit = minSplit; this.maxFeats = maxFeats; this.trees = [];
+  }
+
+  _seededRandom(seed) { let s = seed; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
+
+  fit(X, y) {
+    const rng = this._seededRandom(42);
+    const n = X.length, p = X[0].length;
+    this.trees = [];
+    for (let t = 0; t < this.nTrees; t++) {
+      const bootIdx = Array.from({length: n}, () => Math.floor(rng() * n));
+      const bX = bootIdx.map(i => X[i]), bY = bootIdx.map(i => y[i]);
+      // Sample features
+      const allF = Array.from({length: p}, (_, i) => i);
+      for (let i = allF.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [allF[i], allF[j]] = [allF[j], allF[i]]; }
+      const feats = allF.slice(0, this.maxFeats);
+      const tree = new RegressionTree(this.maxDepth, this.minSplit);
+      tree.fit(bX, bY, feats);
+      this.trees.push(tree);
+    }
+    return this;
+  }
+
+  predict(X) {
+    const allP = this.trees.map(t => t.predict(X));
+    return X.map((_, i) => allP.reduce((s, p) => s + p[i], 0) / this.nTrees);
+  }
+
+  predictOne(x) { return this.predict([x])[0]; }
+}
+
+// ---- XGBoost Proxy ----
+class XGBoostProxy {
+  constructor(nRounds = 40, lr = 0.1, maxDepth = 4, minSplit = 12) {
+    this.nRounds = nRounds; this.lr = lr; this.maxDepth = maxDepth; this.minSplit = minSplit;
+    this.trees = []; this.basePred = 0; this.featureGain = {};
+  }
+
+  fit(X, y) {
+    const n = X.length, p = X[0].length;
+    this.basePred = y.reduce((a, b) => a + b) / n;
+    let currPred = Array(n).fill(this.basePred);
+    this.trees = [];
+    this.featureGain = {};
+    for (let i = 0; i < p; i++) this.featureGain[i] = 0;
+
+    for (let r = 0; r < this.nRounds; r++) {
+      const residuals = y.map((v, i) => v - currPred[i]);
+      const tree = new RegressionTree(this.maxDepth, this.minSplit);
+      tree.fit(X, residuals);
+
+      // Collect gain
+      const collectGain = (node) => {
+        if (!node || node.feat === null) return;
+        this.featureGain[node.feat] = (this.featureGain[node.feat] || 0) + node.gain;
+        collectGain(node.left); collectGain(node.right);
+      };
+      collectGain(tree.root);
+
+      const stepP = tree.predict(X);
+      currPred = currPred.map((v, i) => v + this.lr * stepP[i]);
+      this.trees.push(tree);
+    }
+    return this;
+  }
+
+  predict(X) {
+    let preds = Array(X.length).fill(this.basePred);
+    for (const tree of this.trees) {
+      const stepP = tree.predict(X);
+      preds = preds.map((v, i) => v + this.lr * stepP[i]);
+    }
+    return preds;
+  }
+
+  predictOne(x) { return this.predict([x])[0]; }
+}
+
+// ---- Metrics ----
+function calcMetrics(yTrue, yPred) {
+  const n = yTrue.length;
+  const mae = yTrue.reduce((s, v, i) => s + Math.abs(v - yPred[i]), 0) / n;
+  const rmse = Math.sqrt(yTrue.reduce((s, v, i) => s + (v - yPred[i]) ** 2, 0) / n);
+  const my = yTrue.reduce((a, b) => a + b) / n;
+  const ssTot = yTrue.reduce((s, v) => s + (v - my) ** 2, 0);
+  const ssRes = yTrue.reduce((s, v, i) => s + (v - yPred[i]) ** 2, 0);
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+  return { mae, rmse, r2 };
+}
+
+// ===========================================================================
+// SIMPLE CANVAS CHART LIBRARY
+// ===========================================================================
+class SimpleChart {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext('2d');
+    this.dpr = window.devicePixelRatio || 1;
+    this.resize();
+  }
+
+  resize() {
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this.w = rect.width - 40;
+    this.h = parseInt(this.canvas.height);
+    this.canvas.width = this.w * this.dpr;
+    this.canvas.height = this.h * this.dpr;
+    this.canvas.style.width = this.w + 'px';
+    this.canvas.style.height = this.h + 'px';
+    this.ctx.scale(this.dpr, this.dpr);
+  }
+
+  clear() { this.ctx.clearRect(0, 0, this.w, this.h); }
+
+  drawAxes(padding, xLabel, yLabel, xMin, xMax, yMin, yMax) {
+    const ctx = this.ctx;
+    const p = padding;
+    ctx.strokeStyle = '#475569'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(p.l, p.t); ctx.lineTo(p.l, this.h - p.b); ctx.lineTo(this.w - p.r, this.h - p.b); ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(xLabel, (p.l + this.w - p.r) / 2, this.h - 4);
+    ctx.save(); ctx.translate(12, (p.t + this.h - p.b) / 2); ctx.rotate(-Math.PI/2); ctx.fillText(yLabel, 0, 0); ctx.restore();
+
+    // Y ticks
+    const nTicksY = 5;
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= nTicksY; i++) {
+      const v = yMin + (yMax - yMin) * i / nTicksY;
+      const yy = this.h - p.b - (this.h - p.t - p.b) * i / nTicksY;
+      ctx.fillStyle = '#64748b'; ctx.fillText(v.toFixed(1), p.l - 5, yy + 4);
+      if (i > 0 && i < nTicksY) {
+        ctx.strokeStyle = '#1e293b'; ctx.beginPath(); ctx.moveTo(p.l, yy); ctx.lineTo(this.w - p.r, yy); ctx.stroke();
+      }
+    }
+
+    // X ticks
+    const nTicksX = 5;
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= nTicksX; i++) {
+      const v = xMin + (xMax - xMin) * i / nTicksX;
+      const xx = p.l + (this.w - p.l - p.r) * i / nTicksX;
+      ctx.fillStyle = '#64748b'; ctx.fillText(v.toFixed(0), xx, this.h - p.b + 16);
+    }
+  }
+
+  linePlot(data, padding, xMin, xMax, yMin, yMax, color, lineWidth = 1.5) {
+    const ctx = this.ctx, p = padding;
+    const plotW = this.w - p.l - p.r, plotH = this.h - p.t - p.b;
+    ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < data.length; i++) {
+      const x = p.l + (i / (data.length - 1)) * plotW;
+      const y = this.h - p.b - ((data[i] - yMin) / (yMax - yMin)) * plotH;
+      if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+    }
+    ctx.stroke();
+  }
+
+  scatterPlot(xData, yData, padding, xMin, xMax, yMin, yMax, color, radius = 2) {
+    const ctx = this.ctx, p = padding;
+    const plotW = this.w - p.l - p.r, plotH = this.h - p.t - p.b;
+    ctx.fillStyle = color;
+    for (let i = 0; i < xData.length; i++) {
+      const x = p.l + ((xData[i] - xMin) / (xMax - xMin)) * plotW;
+      const y = this.h - p.b - ((yData[i] - yMin) / (yMax - yMin)) * plotH;
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  barPlot(values, labels, padding, yMin, yMax, colors) {
+    const ctx = this.ctx, p = padding;
+    const plotW = this.w - p.l - p.r, plotH = this.h - p.t - p.b;
+    const barW = plotW / values.length * 0.6;
+    const gap = plotW / values.length;
+
+    for (let i = 0; i < values.length; i++) {
+      const h = ((values[i] - yMin) / (yMax - yMin)) * plotH;
+      const x = p.l + gap * i + (gap - barW) / 2;
+      const y = this.h - p.b - h;
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, h, [4, 4, 0, 0]);
+      ctx.fill();
+      // Label
+      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(values[i].toFixed(2), x + barW / 2, y - 6);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
+      // Split label for multi-word
+      const words = labels[i].split(' ');
+      words.forEach((w, wi) => ctx.fillText(w, x + barW / 2, this.h - p.b + 14 + wi * 12));
+    }
+  }
+
+  legend(items, x, y) {
+    const ctx = this.ctx;
+    items.forEach((item, i) => {
+      ctx.fillStyle = item.color;
+      ctx.fillRect(x, y + i * 18, 12, 12);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(item.label, x + 18, y + i * 18 + 10);
+    });
+  }
+}
+
+// ===========================================================================
+// RENDERING FUNCTIONS
+// ===========================================================================
+
+function renderOverview(metrics) {
+  document.getElementById('s-total').textContent = daytimeData.length.toLocaleString();
+  document.getElementById('s-r2').textContent = metrics.xgb_test.r2.toFixed(4);
+  document.getElementById('s-mae').textContent = metrics.xgb_test.mae.toFixed(2) + ' W';
+
+  // Peak soiling loss
+  let maxLoss = 0;
+  daytimeData.forEach(r => {
+    const loss = parseFloat(r['P_clean_W']) - parseFloat(r['P_dusty_W']);
+    if (loss > maxLoss) maxLoss = loss;
+  });
+  document.getElementById('s-loss').textContent = maxLoss.toFixed(1) + ' W';
+
+  // Feature importance bars
+  const xgb = trainedModels.xgb;
+  const totalGain = Object.values(xgb.featureGain).reduce((a, b) => a + b, 0);
+  const featNames = ['G_POA', 'T_amb', 'T_cell', 'RH', 'wind_speed', 'cloud_cover', 'dust_PCHIP', 'Delta_T'];
+  const featImps = featNames.map((_, i) => ((xgb.featureGain[i] || 0) / totalGain) * 100);
+  const sorted = featNames.map((n, i) => ({name: n, val: featImps[i]})).sort((a, b) => b.val - a.val);
+
+  const fbEl = document.getElementById('feat-bars');
+  fbEl.innerHTML = sorted.map((f, i) => {
+    const colors = ['c1','c2','c3','c4'];
+    return `<div class="bar-row">
+      <div class="bar-label">${f.name}</div>
+      <div class="bar-track"><div class="bar-fill ${colors[i%4]}" style="width:${Math.max(f.val, 1)}%">${f.val.toFixed(1)}%</div></div>
+    </div>`;
+  }).join('');
+
+  // Performance bars
+  const pbEl = document.getElementById('perf-bars');
+  const models = [
+    {name: 'Baseline', mae: metrics.base_test.mae},
+    {name: 'Ridge LR', mae: metrics.lr_test.mae},
+    {name: 'Random Forest', mae: metrics.rf_test.mae},
+    {name: 'XGBoost ⭐', mae: metrics.xgb_test.mae}
+  ];
+  const maxMAE = Math.max(...models.map(m => m.mae));
+  pbEl.innerHTML = models.map((m, i) => {
+    const pct = (m.mae / maxMAE) * 100;
+    const colors = ['c4','c2','c3','c1'];
+    return `<div class="bar-row">
+      <div class="bar-label">${m.name}</div>
+      <div class="bar-track"><div class="bar-fill ${colors[i]}" style="width:${pct}%">${m.mae.toFixed(2)} W</div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderModelComparison(metrics) {
+  const rows = [
+    ['Naïve Mean Baseline', 'Train', metrics.base_train, ''],
+    ['', 'Test', metrics.base_test, 'tag-base'],
+    ['Ridge Linear Regression', 'Train', metrics.lr_train, ''],
+    ['', 'Test', metrics.lr_test, ''],
+    ['Random Forest (B=30)', 'Train', metrics.rf_train, ''],
+    ['', 'Test', metrics.rf_test, ''],
+    ['XGBoost (M=40) ⭐', 'Train', metrics.xgb_train, ''],
+    ['', 'Test', metrics.xgb_test, 'tag-best'],
+  ];
+  const tbody = document.getElementById('model-perf-body');
+  tbody.innerHTML = rows.map(([model, set, m, tag]) => {
+    const isBest = tag === 'tag-best';
+    return `<tr${isBest ? ' class="best"' : ''}>
+      <td>${model}</td><td>${set}</td>
+      <td>${m.mae.toFixed(2)}</td><td>${m.rmse.toFixed(2)}</td><td>${m.r2.toFixed(4)}</td>
+      <td>${tag ? `<span class="tag ${tag}">${isBest ? 'BEST' : 'BASE'}</span>` : ''}</td>
+    </tr>`;
+  }).join('');
+
+  // MAE comparison bars
+  const maeEl = document.getElementById('mae-comp-bars');
+  const testModels = [
+    {name: 'Baseline', val: metrics.base_test.mae},
+    {name: 'Ridge LR', val: metrics.lr_test.mae},
+    {name: 'Random Forest', val: metrics.rf_test.mae},
+    {name: 'XGBoost', val: metrics.xgb_test.mae},
+  ];
+  const maxM = Math.max(...testModels.map(m => m.val));
+  maeEl.innerHTML = testModels.map((m, i) => {
+    const colors = ['c4','c2','c3','c1'];
+    return `<div class="bar-row"><div class="bar-label">${m.name}</div>
+      <div class="bar-track"><div class="bar-fill ${colors[i]}" style="width:${(m.val/maxM)*100}%">${m.val.toFixed(2)} W</div></div></div>`;
+  }).join('');
+
+  // R² bars
+  const r2El = document.getElementById('r2-comp-bars');
+  const r2Models = [
+    {name: 'Ridge LR', val: metrics.lr_test.r2},
+    {name: 'Random Forest', val: metrics.rf_test.r2},
+    {name: 'XGBoost', val: metrics.xgb_test.r2},
+  ];
+  r2El.innerHTML = r2Models.map((m, i) => {
+    const colors = ['c2','c3','c1'];
+    return `<div class="bar-row"><div class="bar-label">${m.name}</div>
+      <div class="bar-track"><div class="bar-fill ${colors[i]}" style="width:${m.val*100}%">${m.val.toFixed(4)}</div></div></div>`;
+  }).join('');
+
+  // Subgroup table
+  const subgroups = [
+    { name: 'Low Irradiance (G ≤ 200)', filter: i => X_test[i][0] <= 200 },
+    { name: 'Medium Irradiance (200 < G ≤ 600)', filter: i => X_test[i][0] > 200 && X_test[i][0] <= 600 },
+    { name: 'High Irradiance (G > 600)', filter: i => X_test[i][0] > 600 },
+    { name: 'High Cell Temp (T_cell > 50°C)', filter: i => X_test[i][2] > 50 },
+    { name: 'High Dust (> 18 g/m²)', filter: i => X_test[i][6] > 18 },
+  ];
+  const lrPreds = trainedModels.lr.predict(X_test);
+  const xgbPreds = trainedModels.xgb.predict(X_test);
+
+  const sgBody = document.getElementById('subgroup-body');
+  sgBody.innerHTML = subgroups.map(sg => {
+    const idxs = []; for (let i = 0; i < X_test.length; i++) { if (sg.filter(i)) idxs.push(i); }
+    if (idxs.length === 0) return '';
+    const yt = idxs.map(i => y_test[i]);
+    const lrP = idxs.map(i => lrPreds[i]);
+    const xP = idxs.map(i => xgbPreds[i]);
+    const lrM = calcMetrics(yt, lrP);
+    const xM = calcMetrics(yt, xP);
+    return `<tr><td>${sg.name}</td><td>${idxs.length}</td>
+      <td>${lrM.mae.toFixed(2)}</td><td>${lrM.rmse.toFixed(2)}</td>
+      <td>${xM.mae.toFixed(2)}</td><td>${xM.rmse.toFixed(2)}</td></tr>`;
+  }).join('');
+}
+
+function renderCharts() {
+  // 1. Clean vs Dusty Power
+  const pClean = daytimeData.map(r => parseFloat(r['P_clean_W']));
+  const pDusty = daytimeData.map(r => parseFloat(r['P_dusty_W']));
+  const pad = {t: 20, r: 20, b: 40, l: 55};
+
+  const ch1 = new SimpleChart('chart-power');
+  ch1.clear();
+  const yMax1 = Math.max(...pClean) * 1.1;
+  ch1.drawAxes(pad, 'Time (hourly index)', 'Power (W)', 0, pClean.length, 0, yMax1);
+  ch1.linePlot(pClean, pad, 0, pClean.length, 0, yMax1, '#38bdf8', 1);
+  ch1.linePlot(pDusty, pad, 0, pDusty.length, 0, yMax1, '#f87171', 1);
+  ch1.legend([{label: 'P_clean', color: '#38bdf8'}, {label: 'P_dusty', color: '#f87171'}], pad.l + 10, pad.t + 5);
+
+  // 2. Soiling Loss
+  const losses = pClean.map((v, i) => v - pDusty[i]);
+  const ch2 = new SimpleChart('chart-loss');
+  ch2.clear();
+  const yMax2 = Math.max(...losses) * 1.1;
+  ch2.drawAxes(pad, 'Time (hourly index)', 'Soiling Loss ΔP (W)', 0, losses.length, 0, yMax2);
+  ch2.linePlot(losses, pad, 0, losses.length, 0, yMax2, '#fb923c', 1.5);
+
+  // 3. Delta_T vs P_dusty scatter
+  const deltaTs = daytimeData.map(r => parseFloat(r['T_cell_C']) - parseFloat(r['temp_amb_C']));
+  const ch3 = new SimpleChart('chart-scatter');
+  ch3.clear();
+  const dtMin = Math.min(...deltaTs), dtMax = Math.max(...deltaTs);
+  const pdMax = Math.max(...pDusty) * 1.1;
+  ch3.drawAxes(pad, 'ΔT = T_cell − T_amb (°C)', 'P_dusty (W)', dtMin, dtMax, 0, pdMax);
+  ch3.scatterPlot(deltaTs, pDusty, pad, dtMin, dtMax, 0, pdMax, '#22d3ee', 2.5);
+
+  // 4. Dust density histogram
+  const dustVals = daytimeData.map(r => parseFloat(r['dust_density_reconstructed_PCHIP_gm2']));
+  const nBins = 20;
+  const dMin = Math.min(...dustVals), dMax = Math.max(...dustVals);
+  const binW = (dMax - dMin) / nBins;
+  const bins = Array(nBins).fill(0);
+  dustVals.forEach(v => { let idx = Math.min(Math.floor((v - dMin) / binW), nBins - 1); bins[idx]++; });
+  const ch4 = new SimpleChart('chart-dust-hist');
+  ch4.clear();
+  const binMax = Math.max(...bins) * 1.1;
+  ch4.drawAxes(pad, 'Dust Density (g/m²)', 'Count', dMin, dMax, 0, binMax);
+  const binColors = bins.map((_, i) => `hsl(${190 + i * 4}, 70%, 55%)`);
+  ch4.barPlot(bins, bins.map((_, i) => (dMin + i * binW).toFixed(1)), pad, 0, binMax, binColors);
+
+  // 5. Irradiance vs Power
+  const gVals = daytimeData.map(r => parseFloat(r['G_POA_Wm2']));
+  const ch5 = new SimpleChart('chart-irr-power');
+  ch5.clear();
+  const gMax = Math.max(...gVals) * 1.1;
+  ch5.drawAxes(pad, 'G_POA (W/m²)', 'Power (W)', 0, gMax, 0, pdMax);
+  ch5.scatterPlot(gVals, pClean, pad, 0, gMax, 0, pdMax, '#38bdf8', 2);
+  ch5.scatterPlot(gVals, pDusty, pad, 0, gMax, 0, pdMax, '#f87171', 2);
+  ch5.legend([{label: 'P_clean', color: '#38bdf8'}, {label: 'P_dusty', color: '#f87171'}], pad.l + 10, pad.t + 5);
+}
+
+function renderDataExplorer() {
+  const tbody = document.getElementById('data-body');
+  const searchBox = document.getElementById('search-box');
+  const filterIrr = document.getElementById('filter-irr');
+  const rowCount = document.getElementById('row-count');
+
+  function render() {
+    const q = searchBox.value.toLowerCase();
+    const irr = filterIrr.value;
+    let filtered = daytimeData.filter(r => {
+      if (q && !r['datetime'].toLowerCase().includes(q)) return false;
+      const g = parseFloat(r['G_POA_Wm2']);
+      if (irr === 'low' && g > 200) return false;
+      if (irr === 'med' && (g <= 200 || g > 600)) return false;
+      if (irr === 'high' && g <= 600) return false;
+      return true;
+    });
+
+    rowCount.textContent = filtered.length + ' rows';
+
+    // Render first 500 for performance
+    const show = filtered.slice(0, 500);
+    tbody.innerHTML = show.map(r => {
+      const pc = parseFloat(r['P_clean_W']);
+      const pd = parseFloat(r['P_dusty_W']);
+      const dp = (pc - pd).toFixed(2);
+      const dpColor = (pc - pd) > 10 ? 'color:var(--red)' : (pc - pd) > 5 ? 'color:var(--orange)' : 'color:var(--green)';
+      return `<tr>
+        <td>${r['datetime']}</td>
+        <td>${parseFloat(r['G_POA_Wm2']).toFixed(1)}</td>
+        <td>${parseFloat(r['temp_amb_C']).toFixed(1)}</td>
+        <td>${parseFloat(r['T_cell_C']).toFixed(1)}</td>
+        <td>${parseFloat(r['RH_pct']).toFixed(0)}</td>
+        <td>${parseFloat(r['wind_speed_ms']).toFixed(1)}</td>
+        <td>${parseFloat(r['cloud_cover_pct']).toFixed(0)}</td>
+        <td>${parseFloat(r['dust_density_reconstructed_PCHIP_gm2']).toFixed(2)}</td>
+        <td>${pc.toFixed(2)}</td>
+        <td>${pd.toFixed(2)}</td>
+        <td style="${dpColor}; font-weight:600;">${dp}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  searchBox.addEventListener('input', render);
+  filterIrr.addEventListener('change', render);
+  render();
+}
+
+// ---- Prediction Panel ----
+function setupPrediction() {
+  const sliders = {
+    gpoa: document.getElementById('sl-gpoa'),
+    tamb: document.getElementById('sl-tamb'),
+    tcell: document.getElementById('sl-tcell'),
+    rh: document.getElementById('sl-rh'),
+    ws: document.getElementById('sl-ws'),
+    cc: document.getElementById('sl-cc'),
+    dust: document.getElementById('sl-dust'),
+  };
+  const labels = {
+    gpoa: document.getElementById('v-gpoa'),
+    tamb: document.getElementById('v-tamb'),
+    tcell: document.getElementById('v-tcell'),
+    rh: document.getElementById('v-rh'),
+    ws: document.getElementById('v-ws'),
+    cc: document.getElementById('v-cc'),
+    dust: document.getElementById('v-dust'),
+  };
+
+  function predict() {
+    const g = parseFloat(sliders.gpoa.value);
+    const ta = parseFloat(sliders.tamb.value);
+    const tc = parseFloat(sliders.tcell.value);
+    const rh = parseFloat(sliders.rh.value);
+    const ws = parseFloat(sliders.ws.value);
+    const cc = parseFloat(sliders.cc.value);
+    const dust = parseFloat(sliders.dust.value);
+    const dt = tc - ta;
+
+    labels.gpoa.textContent = g + ' W/m²';
+    labels.tamb.textContent = ta.toFixed(1) + ' °C';
+    labels.tcell.textContent = tc.toFixed(1) + ' °C';
+    labels.rh.textContent = rh + ' %';
+    labels.ws.textContent = ws.toFixed(1) + ' m/s';
+    labels.cc.textContent = cc + ' %';
+    labels.dust.textContent = dust.toFixed(1) + ' g/m²';
+
+    const features = [g, ta, tc, rh, ws, cc, dust, dt];
+
+    const predLR = Math.max(0, trainedModels.lr.predictOne(features));
+    const predRF = Math.max(0, trainedModels.rf.predictOne(features));
+    const predXGB = Math.max(0, trainedModels.xgb.predictOne(features));
+
+    document.getElementById('pred-lr').textContent = predLR.toFixed(2) + ' W';
+    document.getElementById('pred-rf').textContent = predRF.toFixed(2) + ' W';
+    document.getElementById('pred-xgb').textContent = predXGB.toFixed(2) + ' W';
+    document.getElementById('pred-dusty').textContent = predXGB.toFixed(1);
+
+    // Estimate clean power (simple linear approx from data)
+    const cleanEst = g * 0.085; // ~85W / 1000 W/m² for the module
+    const loss = Math.max(0, cleanEst - predXGB);
+    document.getElementById('pred-loss').textContent = loss.toFixed(1);
+
+    // Color the result card
+    const rc = document.getElementById('rc-dusty');
+    rc.className = 'result-card ' + (predXGB > 40 ? 'normal' : predXGB > 15 ? 'warning' : 'critical');
+
+    // Maintenance alert
+    const alert = document.getElementById('maint-alert');
+    const lossPct = cleanEst > 0 ? (loss / cleanEst * 100) : 0;
+    if (loss >= 15 || lossPct > 25) {
+      alert.className = 'alert-banner crit';
+      alert.innerHTML = `<span class="alert-icon">🚨</span><div><strong>CRITICAL: Immediate Cleaning Required</strong><div style="font-size:12px; margin-top:2px;">Soiling loss: ${loss.toFixed(1)}W (${lossPct.toFixed(1)}% degradation). Schedule emergency panel cleaning.</div></div>`;
+    } else if (loss >= 8 || lossPct > 12) {
+      alert.className = 'alert-banner warn';
+      alert.innerHTML = `<span class="alert-icon">⚠️</span><div><strong>WARNING: Cleaning Recommended</strong><div style="font-size:12px; margin-top:2px;">Soiling loss: ${loss.toFixed(1)}W (${lossPct.toFixed(1)}% degradation). Schedule preventive cleaning within 48 hours.</div></div>`;
+    } else {
+      alert.className = 'alert-banner ok';
+      alert.innerHTML = `<span class="alert-icon">✅</span><div><strong>Panel Status: Normal</strong><div style="font-size:12px; margin-top:2px;">Soiling loss: ${loss.toFixed(1)}W (${lossPct.toFixed(1)}% degradation). No cleaning required.</div></div>`;
+    }
+  }
+
+  Object.values(sliders).forEach(s => s.addEventListener('input', predict));
+  predict();
+}
+
+// ===========================================================================
+// MAIN INIT
+// ===========================================================================
+async function init() {
+  await loadCSV();
+  preprocessData();
+
+  document.getElementById('loading').innerHTML = '<div class="spinner"></div><p>Training Ridge Regression…</p>';
+  await new Promise(r => setTimeout(r, 50));
+
+  trainedModels.lr = new RidgeRegression(1.0).fit(X_train, y_train);
+
+  document.getElementById('loading').innerHTML = '<div class="spinner"></div><p>Training Random Forest (30 trees)…</p>';
+  await new Promise(r => setTimeout(r, 50));
+
+  trainedModels.rf = new RandomForest(30, 7, 8, 4).fit(X_train, y_train);
+
+  document.getElementById('loading').innerHTML = '<div class="spinner"></div><p>Training XGBoost (40 boosting rounds)…</p>';
+  await new Promise(r => setTimeout(r, 50));
+
+  trainedModels.xgb = new XGBoostProxy(40, 0.1, 4, 12).fit(X_train, y_train);
+
+  // Calculate all metrics
+  const trainMean = y_train.reduce((a, b) => a + b) / y_train.length;
+  const metrics = {
+    base_train: calcMetrics(y_train, Array(y_train.length).fill(trainMean)),
+    base_test: calcMetrics(y_test, Array(y_test.length).fill(trainMean)),
+    lr_train: calcMetrics(y_train, trainedModels.lr.predict(X_train)),
+    lr_test: calcMetrics(y_test, trainedModels.lr.predict(X_test)),
+    rf_train: calcMetrics(y_train, trainedModels.rf.predict(X_train)),
+    rf_test: calcMetrics(y_test, trainedModels.rf.predict(X_test)),
+    xgb_train: calcMetrics(y_train, trainedModels.xgb.predict(X_train)),
+    xgb_test: calcMetrics(y_test, trainedModels.xgb.predict(X_test)),
+  };
+
+  // Hide loading, show overview
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('p-overview').classList.add('active');
+
+  renderOverview(metrics);
+  renderModelComparison(metrics);
+  renderCharts();
+  renderDataExplorer();
+  setupPrediction();
+}
+
+init();
+</script>
+</body>
+</html>
