@@ -27,6 +27,80 @@ This repository provides an empirical, leakage-free machine learning framework d
 
 ---
 
+## 💡 Key Findings & Research Contributions (In Simple Terms)
+
+### ❓ The Problem We Are Solving
+In arid, desert environments like the Algerian Sahara, atmospheric dust and sand rapidly coat photovoltaic panels, cutting their solar absorption. Today, solar farm operators rely on **blind, calendar-based cleaning** (e.g., washing every two weeks). This leads to two critical operational failures:
+1. **Wasting Scarce Water:** In arid regions facing severe water stress, washing clean panels when no major dust storm has occurred squanders thousands of liters of potable groundwater.
+2. **Missing Sudden Soiling Events:** When a severe desert dust storm hits shortly after a wash cycle, panels can operate at heavily degraded efficiency for days without detection, directly threatening renewable energy security.
+
+---
+
+### 🔍 What Did We Discover? (Key Scientific Findings)
+
+| # | Finding | Simple Explanation | The Empirical Evidence |
+| :-: | :--- | :--- | :--- |
+| **1** | **Dust Causes Acute Midday Power Losses** | Soiled panels suffer their worst losses during peak solar hours when generation value is highest. | Power loss peaked at **$21.08\text{ W}$ on an $85\text{ W}$ panel** (**$24.8\%$ loss in generating capacity**) under $1,041\text{ W/m}^2$ peak Saharan sunlight. |
+| **2** | **Thermal Gradient ($\Delta T$) is the #1 Predictor** | The temperature gap between the PV cell and ambient air ($\Delta T = T_{cell} - T_{amb}$) acts as an ultra-sensitive physical indicator of dust accumulation. | Accounts for **$90.81\%$ of XGBoost feature gain**, far surpassing raw ambient temperature, wind speed, or humidity. |
+| **3** | **Linear Models Break Under Desert Heat** | Standard linear regression fails when junction temperatures exceed $50^\circ\text{C}$ due to non-linear silicon semiconductor physics. | Linear regression error jumped to **$4.93\text{ W}$ MAE** ($5.48\text{ W}$ RMSE), while XGBoost maintained robust precision at **$1.74\text{ W}$ MAE**. |
+| **4** | **Ensemble Boosting Achieves Human-Level Precision** | Sequential gradient boosting (XGBoost) accurately captures subtle dust-thermal interactions without overfitting. | Achieved **$1.24\text{ W}$ Test MAE**, $1.85\text{ W}$ RMSE, and **$R^2 = 0.9928$** (**$93.9\%$ relative error reduction** over naive baseline). |
+| **5** | **Condition-Based Cleaning Saves $\approx 40\%$ Water** | Triggering wash cycles only when predicted deficit $\Delta P \ge 10\text{ W}$ for $\ge 3$ consecutive peak hours optimizes maintenance. | Eliminates unnecessary premature washing, saving up to **$40\%$ in water consumption** while safeguarding renewable energy output (SDG 7). |
+
+---
+
+### 🛠️ What Did We Build & Contribute? (Project Contributions)
+
+1. **Leakage-Free Time-Series ML Pipeline (`train_evaluate.py`):**
+   - Unlike naive random splits that leak future weather into past training sets, we implemented a strict **chronological 70/30 split** and **5-fold expanding-window cross-validation**, validating performance exclusively on held-out future summer telemetry.
+
+2. **Zero-Dependency Algorithmic Architecture:**
+   - The entire training pipeline is built from scratch using **pure Python standard library** (no `pandas`, `scikit-learn`, `numpy`, or `xgboost` packages required). Gauss-Jordan matrix inversion, regression trees, bootstrap random forests, and gradient boosting were implemented by hand for total reproducibility.
+
+3. **Edge IoT Microcontroller Ready:**
+   - Inference requires only **$26.5\text{ microseconds}$ per hourly observation** ($0.018$ seconds for all 679 test hours). It can run directly on low-power on-site edge hardware (Raspberry Pi, ESP32, or STM32) without cloud subscriptions or cellular bandwidth.
+
+4. **Standalone Interactive Operations Web App (`dashboard.html` / `index.html`):**
+   - A single-file, zero-install interactive browser dashboard embedding the full 4,368-hour dataset. It trains ML models live in JavaScript, features interactive environmental sliders, displays automated condition-based cleaning alerts, and renders responsive Chart.js telemetry curves.
+
+---
+
+## 💻 Interactive Operations Dashboard & Live Preview
+
+The repository provides an interactive web application allowing solar facility managers, researchers, and students to simulate operational scenarios in real time:
+
+> 🌐 **Live Demo:** Open [`dashboard.html`](dashboard.html) locally in any browser or view the GitHub Pages deployment via [`index.html`](index.html).
+
+<div align="center">
+
+### 1. Real-Time Predictive Maintenance & Environmental Sliders
+*Adjust solar irradiance, ambient temperature, humidity, wind, and dust levels to get instant power predictions across all 3 models and automated cleaning alerts.*
+
+<p align="center">
+  <img src="assets/dashboard_predictor.png" alt="Live Predictor Dashboard" width="95%">
+</p>
+
+---
+
+### 2. Overview Dashboard & Algorithmic Performance Snapshot
+*Executive metrics summary, dataset statistics, and XGBoost split-gain feature importance.*
+
+<p align="center">
+  <img src="assets/dashboard_overview.png" alt="Overview Dashboard" width="95%">
+</p>
+
+---
+
+### 3. Diurnal Telemetry Analytics & Cleaning Alarm Threshold
+*Interactive Chart.js visualizations showing clean vs. dusty power curves and the $10\text{ W}$ condition-based cleaning alarm threshold.*
+
+<p align="center">
+  <img src="assets/dashboard_analytics.png" alt="Analytics Dashboard" width="95%">
+</p>
+
+</div>
+
+---
+
 ## 🏗️ System Architecture & Workflow
 
 The end-to-end framework bridges raw environmental sensor telemetry to real-time predictive maintenance actions:
@@ -111,15 +185,20 @@ Feature importance evaluated through total split gain variance reduction confirm
 
 ```
 ├── assets/
-│   ├── system_architecture.svg         # End-to-end framework diagram
-│   ├── model_benchmark_comparison.svg  # Comparative MAE/RMSE benchmark
-│   ├── soiling_degradation_loss.svg    # Time-series clean vs dusty power deficit
-│   ├── subgroup_error_breakdown.svg    # High-temperature & irradiance stress analysis
-│   └── feature_importance.svg          # XGBoost split-gain feature attribution
+│   ├── dashboard_overview.png          # Overview dashboard KPI snapshot
+│   ├── dashboard_predictor.png         # Live prediction & cleaning alert interface
+│   ├── dashboard_analytics.png         # Diurnal curves & 10W cleaning threshold
+│   ├── system_architecture.svg         # End-to-end framework pipeline diagram
+│   ├── model_benchmark_comparison.svg  # Quantitative MAE/RMSE comparison chart
+│   ├── soiling_degradation_loss.svg    # Clean vs dusty power deficit time-series
+│   ├── subgroup_error_breakdown.svg    # High-temperature & irradiance stress breakdown
+│   └── feature_importance.svg          # XGBoost split-gain feature attribution chart
+├── dashboard.html                      # Standalone zero-dependency interactive dashboard
+├── index.html                          # GitHub Pages production deployment entrypoint
 ├── Laghouat_2022_final-2.csv           # 4,368-hour experimental telemetry dataset
 ├── train_evaluate.py                   # Standalone, zero-dependency Python ML pipeline
 ├── .gitignore                          # Clean OS and Python cache exclusions
-└── README.md                           # Documentation and empirical results
+└── README.md                           # Comprehensive documentation and empirical report
 ```
 
 ---
@@ -195,7 +274,7 @@ XGBoost Regressor (Selected)   | Train (N=1583)  | 0.63     | 0.86     | 0.9987
 
 ## ⚡ Edge Microcontroller Deployment
 
-XGBoost achieves an average inference latency of **$0.018$ seconds across all 679 test observations** ($\approx 26.5\text{ microseconds}$ per sample). This lightweight computational footprint allows direct deployment on on-site solar data-loggers (e.g., Raspberry Pi 4, ESP32, or STM32 ARM microcontrollers) for autonomous real-time cleaning alerts without cloud dependency.
+XGBoost achieves an average inference latency of **$0.018$ seconds across all 679 test observations** ($\a\approx 26.5\text{ microseconds}$ per sample). This lightweight computational footprint allows direct deployment on on-site solar data-loggers (e.g., Raspberry Pi 4, ESP32, or STM32 ARM microcontrollers) for autonomous real-time cleaning alerts without cloud dependency.
 
 ---
 
