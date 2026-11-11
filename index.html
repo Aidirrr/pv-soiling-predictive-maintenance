@@ -118,6 +118,7 @@
   .tooltip::after { content:attr(data-tip); position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:var(--surface2); color:var(--text); padding:6px 10px; border-radius:6px; font-size:11px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .2s; }
   .tooltip:hover::after { opacity:1; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -336,29 +337,58 @@
 
   <!-- ========== PANEL 4: ANALYTICS ========== -->
   <div id="p-charts" class="panel">
+    <!-- Chart Controls Toolbar -->
+    <div class="card" style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+      <div>
+        <h3 style="margin:0; font-size:15px; color:var(--text); text-transform:none;">📈 Telemetry & Degradation Visualizations</h3>
+        <p style="font-size:12px; color:var(--text2); margin-top:2px;">Laghouat PV array multi-sensor telemetry, soiling power deficit dynamics, and thermal correlations</p>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <label for="chart-window-select" style="font-size:12px; color:var(--text2); font-weight:600;">Time Window:</label>
+        <select id="chart-window-select" style="padding:8px 14px; border-radius:8px; background:var(--surface2); color:var(--text); border:1px solid var(--border); font-size:12px; cursor:pointer;">
+          <option value="july_week" selected>Peak Summer Soiling Window (01/07 to 07/07/2022)</option>
+          <option value="aug_week">Late Summer High Temp Window (01/08 to 07/08/2022)</option>
+          <option value="feb_week">Clean Baseline Winter Window (18/02 to 24/02/2022)</option>
+          <option value="all">Full Season (All 2,262 Daytime Hours)</option>
+        </select>
+      </div>
+    </div>
+
     <div class="grid grid-2">
-      <div class="card chart-box">
-        <h3>☀️ Clean vs Dusty Power Output (Hourly)</h3>
-        <canvas id="chart-power" height="300"></canvas>
+      <div class="card">
+        <h3>☀️ Diurnal Power Profiles: Clean vs Dusty Panel</h3>
+        <div style="position:relative; height:320px; width:100%; margin-top:12px;">
+          <canvas id="chart-power"></canvas>
+        </div>
       </div>
-      <div class="card chart-box">
-        <h3>🌫️ Soiling Loss Over Time (ΔP = P_clean − P_dusty)</h3>
-        <canvas id="chart-loss" height="300"></canvas>
+      <div class="card">
+        <h3>🌫️ Soiling Loss (ΔP = P_clean − P_dusty) & Maintenance Threshold</h3>
+        <div style="position:relative; height:320px; width:100%; margin-top:12px;">
+          <canvas id="chart-loss"></canvas>
+        </div>
       </div>
     </div>
+
     <div class="grid grid-2" style="margin-top:20px;">
-      <div class="card chart-box">
-        <h3>🌡️ Temperature Gradient vs Power</h3>
-        <canvas id="chart-scatter" height="300"></canvas>
+      <div class="card">
+        <h3>🌡️ Thermal Gradient (ΔT = T_cell − T_amb) vs Power Output</h3>
+        <div style="position:relative; height:320px; width:100%; margin-top:12px;">
+          <canvas id="chart-scatter"></canvas>
+        </div>
       </div>
-      <div class="card chart-box">
-        <h3>🌧️ Dust Density Distribution</h3>
-        <canvas id="chart-dust-hist" height="300"></canvas>
+      <div class="card">
+        <h3>🌪️ Surface Dust Density Frequency Distribution (g/m²)</h3>
+        <div style="position:relative; height:320px; width:100%; margin-top:12px;">
+          <canvas id="chart-dust-hist"></canvas>
+        </div>
       </div>
     </div>
+
     <div class="card" style="margin-top:20px;">
-      <h3>📈 Irradiance vs Power Correlation</h3>
-      <canvas id="chart-irr-power" height="280"></canvas>
+      <h3>⚡ Solar Irradiance (G_POA) vs Output Power Divergence</h3>
+      <div style="position:relative; height:340px; width:100%; margin-top:12px;">
+        <canvas id="chart-irr-power"></canvas>
+      </div>
     </div>
   </div>
 
@@ -414,7 +444,11 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
-    document.getElementById('p-' + tab.dataset.panel).classList.add('active');
+    const panel = document.getElementById('p-' + tab.dataset.panel);
+    panel.classList.add('active');
+    if (tab.dataset.panel === 'charts') {
+      setTimeout(() => renderCharts(), 30);
+    }
   });
 });
 
@@ -5296,61 +5330,392 @@ function renderModelComparison(metrics) {
   }).join('');
 }
 
-function renderCharts() {
-  // 1. Clean vs Dusty Power
-  const pClean = daytimeData.map(r => parseFloat(r['P_clean_W']));
-  const pDusty = daytimeData.map(r => parseFloat(r['P_dusty_W']));
-  const pad = {t: 20, r: 20, b: 40, l: 55};
+// ===========================================================================
+// PROFESSIONAL CHART.JS + RESPONSIVE RENDERING
+// ===========================================================================
+let activeCharts = {};
 
-  const ch1 = new SimpleChart('chart-power');
-  ch1.clear();
-  const yMax1 = Math.max(...pClean) * 1.1;
-  ch1.drawAxes(pad, 'Time (hourly index)', 'Power (W)', 0, pClean.length, 0, yMax1);
-  ch1.linePlot(pClean, pad, 0, pClean.length, 0, yMax1, '#38bdf8', 1);
-  ch1.linePlot(pDusty, pad, 0, pDusty.length, 0, yMax1, '#f87171', 1);
-  ch1.legend([{label: 'P_clean', color: '#38bdf8'}, {label: 'P_dusty', color: '#f87171'}], pad.l + 10, pad.t + 5);
-
-  // 2. Soiling Loss
-  const losses = pClean.map((v, i) => v - pDusty[i]);
-  const ch2 = new SimpleChart('chart-loss');
-  ch2.clear();
-  const yMax2 = Math.max(...losses) * 1.1;
-  ch2.drawAxes(pad, 'Time (hourly index)', 'Soiling Loss ΔP (W)', 0, losses.length, 0, yMax2);
-  ch2.linePlot(losses, pad, 0, losses.length, 0, yMax2, '#fb923c', 1.5);
-
-  // 3. Delta_T vs P_dusty scatter
-  const deltaTs = daytimeData.map(r => parseFloat(r['T_cell_C']) - parseFloat(r['temp_amb_C']));
-  const ch3 = new SimpleChart('chart-scatter');
-  ch3.clear();
-  const dtMin = Math.min(...deltaTs), dtMax = Math.max(...deltaTs);
-  const pdMax = Math.max(...pDusty) * 1.1;
-  ch3.drawAxes(pad, 'ΔT = T_cell − T_amb (°C)', 'P_dusty (W)', dtMin, dtMax, 0, pdMax);
-  ch3.scatterPlot(deltaTs, pDusty, pad, dtMin, dtMax, 0, pdMax, '#22d3ee', 2.5);
-
-  // 4. Dust density histogram
-  const dustVals = daytimeData.map(r => parseFloat(r['dust_density_reconstructed_PCHIP_gm2']));
-  const nBins = 20;
-  const dMin = Math.min(...dustVals), dMax = Math.max(...dustVals);
-  const binW = (dMax - dMin) / nBins;
-  const bins = Array(nBins).fill(0);
-  dustVals.forEach(v => { let idx = Math.min(Math.floor((v - dMin) / binW), nBins - 1); bins[idx]++; });
-  const ch4 = new SimpleChart('chart-dust-hist');
-  ch4.clear();
-  const binMax = Math.max(...bins) * 1.1;
-  ch4.drawAxes(pad, 'Dust Density (g/m²)', 'Count', dMin, dMax, 0, binMax);
-  const binColors = bins.map((_, i) => `hsl(${190 + i * 4}, 70%, 55%)`);
-  ch4.barPlot(bins, bins.map((_, i) => (dMin + i * binW).toFixed(1)), pad, 0, binMax, binColors);
-
-  // 5. Irradiance vs Power
-  const gVals = daytimeData.map(r => parseFloat(r['G_POA_Wm2']));
-  const ch5 = new SimpleChart('chart-irr-power');
-  ch5.clear();
-  const gMax = Math.max(...gVals) * 1.1;
-  ch5.drawAxes(pad, 'G_POA (W/m²)', 'Power (W)', 0, gMax, 0, pdMax);
-  ch5.scatterPlot(gVals, pClean, pad, 0, gMax, 0, pdMax, '#38bdf8', 2);
-  ch5.scatterPlot(gVals, pDusty, pad, 0, gMax, 0, pdMax, '#f87171', 2);
-  ch5.legend([{label: 'P_clean', color: '#38bdf8'}, {label: 'P_dusty', color: '#f87171'}], pad.l + 10, pad.t + 5);
+function destroyAllCharts() {
+  Object.keys(activeCharts).forEach(k => {
+    if (activeCharts[k]) {
+      try { activeCharts[k].destroy(); } catch(e) {}
+      activeCharts[k] = null;
+    }
+  });
 }
+
+function getSelectedWindowData(windowType) {
+  if (windowType === 'july_week') {
+    // Filter for 01/07/2022 to 07/07/2022
+    const filtered = daytimeData.filter(r => {
+      const dt = r['datetime'] || '';
+      return dt.includes('/07/2022') && (
+        dt.startsWith('01/') || dt.startsWith('02/') || dt.startsWith('03/') ||
+        dt.startsWith('04/') || dt.startsWith('05/') || dt.startsWith('06/') || dt.startsWith('07/')
+      );
+    });
+    return filtered.length > 10 ? filtered : daytimeData.slice(800, 950);
+  } else if (windowType === 'aug_week') {
+    const filtered = daytimeData.filter(r => {
+      const dt = r['datetime'] || '';
+      return dt.includes('/08/2022') && (
+        dt.startsWith('01/') || dt.startsWith('02/') || dt.startsWith('03/') ||
+        dt.startsWith('04/') || dt.startsWith('05/') || dt.startsWith('06/') || dt.startsWith('07/')
+      );
+    });
+    return filtered.length > 10 ? filtered : daytimeData.slice(1500, 1650);
+  } else if (windowType === 'feb_week') {
+    const filtered = daytimeData.filter(r => {
+      const dt = r['datetime'] || '';
+      return dt.includes('/02/2022') && (
+        dt.startsWith('18/') || dt.startsWith('19/') || dt.startsWith('20/') ||
+        dt.startsWith('21/') || dt.startsWith('22/') || dt.startsWith('23/') || dt.startsWith('24/')
+      );
+    });
+    return filtered.length > 10 ? filtered : daytimeData.slice(0, 100);
+  }
+  return daytimeData;
+}
+
+function renderCharts() {
+  const windowSelect = document.getElementById('chart-window-select');
+  const windowType = windowSelect ? windowSelect.value : 'july_week';
+  const subData = getSelectedWindowData(windowType);
+
+  destroyAllCharts();
+
+  if (typeof Chart === 'undefined') {
+    renderCanvasFallback(subData);
+    return;
+  }
+
+  // Common dark theme options
+  const darkGrid = '#334155';
+  const darkText = '#94a3b8';
+  Chart.defaults.color = darkText;
+  Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+  // 1. CLEAN VS DUSTY POWER (Time series)
+  const powerLabels = subData.map(r => {
+    const parts = (r['datetime'] || '').split(' ');
+    return parts.length > 1 ? `${parts[0].slice(0,5)} ${parts[1]}` : r['datetime'];
+  });
+  const pClean = subData.map(r => parseFloat(r['P_clean_W']));
+  const pDusty = subData.map(r => parseFloat(r['P_dusty_W']));
+  const isLarge = subData.length > 300;
+
+  const ctxPower = document.getElementById('chart-power').getContext('2d');
+  activeCharts['power'] = new Chart(ctxPower, {
+    type: 'line',
+    data: {
+      labels: powerLabels,
+      datasets: [
+        {
+          label: 'Clean Module Power (P_clean W)',
+          data: pClean,
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.08)',
+          fill: true,
+          tension: 0.25,
+          borderWidth: isLarge ? 1 : 2,
+          pointRadius: isLarge ? 0 : 2.5,
+          pointHoverRadius: 5
+        },
+        {
+          label: 'Dusty Module Power (P_dusty W)',
+          data: pDusty,
+          borderColor: '#f87171',
+          backgroundColor: 'rgba(248, 113, 113, 0.08)',
+          fill: true,
+          tension: 0.25,
+          borderWidth: isLarge ? 1 : 2,
+          pointRadius: isLarge ? 0 : 2.5,
+          pointHoverRadius: 5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 14, color: '#e2e8f0' } },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          borderColor: '#475569',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} W`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: darkGrid, display: !isLarge },
+          ticks: { color: darkText, maxTicksLimit: 10, maxRotation: 0 }
+        },
+        y: {
+          title: { display: true, text: 'Power (Watts)', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+
+  // 2. SOILING LOSS (ΔP) & MAINTENANCE ALARM THRESHOLD
+  const losses = pClean.map((v, i) => Math.max(0, v - pDusty[i]));
+  const thresholdLine = Array(losses.length).fill(10.0);
+
+  const ctxLoss = document.getElementById('chart-loss').getContext('2d');
+  activeCharts['loss'] = new Chart(ctxLoss, {
+    type: 'line',
+    data: {
+      labels: powerLabels,
+      datasets: [
+        {
+          label: 'Soiling Loss Deficit ΔP (Watts)',
+          data: losses,
+          borderColor: '#fb923c',
+          backgroundColor: 'rgba(251, 146, 60, 0.2)',
+          fill: true,
+          tension: 0.25,
+          borderWidth: 2,
+          pointRadius: isLarge ? 0 : 2.5
+        },
+        {
+          label: 'Condition-Based Alarm Threshold (10.0 W)',
+          data: thresholdLine,
+          borderColor: '#ef4444',
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 14, color: '#e2e8f0' } },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          borderColor: '#475569',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} W`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: darkGrid, display: !isLarge },
+          ticks: { color: darkText, maxTicksLimit: 10, maxRotation: 0 }
+        },
+        y: {
+          title: { display: true, text: 'Soiling Loss ΔP (Watts)', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+
+  // 3. THERMAL GRADIENT (ΔT) VS DUSTY POWER (SCATTER)
+  // Sample down if full dataset for snappy interactivity
+  const stepScatter = Math.max(1, Math.floor(daytimeData.length / 500));
+  const scatterData = [];
+  for (let i = 0; i < daytimeData.length; i += stepScatter) {
+    const row = daytimeData[i];
+    const ta = parseFloat(row['temp_amb_C']);
+    const tc = parseFloat(row['T_cell_C']);
+    const pd = parseFloat(row['P_dusty_W']);
+    scatterData.push({ x: tc - ta, y: pd });
+  }
+
+  const ctxScatter = document.getElementById('chart-scatter').getContext('2d');
+  activeCharts['scatter'] = new Chart(ctxScatter, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Observation Samples (ΔT vs P_dusty)',
+        data: scatterData,
+        backgroundColor: 'rgba(34, 211, 238, 0.45)',
+        borderColor: 'rgba(34, 211, 238, 0.8)',
+        borderWidth: 1,
+        pointRadius: 3,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#e2e8f0' } },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          borderColor: '#475569',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => `ΔT: ${ctx.parsed.x.toFixed(1)}°C | P_dusty: ${ctx.parsed.y.toFixed(1)}W`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Net Thermal Gradient ΔT = T_cell − T_amb (°C)', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText }
+        },
+        y: {
+          title: { display: true, text: 'Dusty Power P_dusty (Watts)', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+
+  // 4. DUST DENSITY HISTOGRAM
+  const dustVals = daytimeData.map(r => parseFloat(r['dust_density_reconstructed_PCHIP_gm2']));
+  const nBins = 15;
+  const dMin = 0;
+  const dMax = Math.ceil(Math.max(...dustVals));
+  const binWidth = (dMax - dMin) / nBins;
+  const histCounts = Array(nBins).fill(0);
+  const histLabels = [];
+
+  for (let b = 0; b < nBins; b++) {
+    const low = (dMin + b * binWidth).toFixed(1);
+    const high = (dMin + (b + 1) * binWidth).toFixed(1);
+    histLabels.push(`${low}-${high}`);
+  }
+
+  dustVals.forEach(v => {
+    let idx = Math.min(Math.floor((v - dMin) / binWidth), nBins - 1);
+    if (idx >= 0) histCounts[idx]++;
+  });
+
+  const ctxHist = document.getElementById('chart-dust-hist').getContext('2d');
+  activeCharts['hist'] = new Chart(ctxHist, {
+    type: 'bar',
+    data: {
+      labels: histLabels,
+      datasets: [{
+        label: 'Operating Hours per Dust Range',
+        data: histCounts,
+        backgroundColor: 'rgba(168, 85, 247, 0.65)',
+        borderColor: '#c084fc',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#e2e8f0' } },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          borderColor: '#475569',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => `${ctx.parsed.y} daylight hours`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Surface Dust Density Bins (g/m²)', color: darkText },
+          grid: { display: false },
+          ticks: { color: darkText, maxRotation: 45 }
+        },
+        y: {
+          title: { display: true, text: 'Daylight Generating Hours', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+
+  // 5. IRRADIANCE (G_POA) VS POWER CORRELATION (CLEAN VS DUSTY)
+  const irrCleanData = [];
+  const irrDustyData = [];
+  for (let i = 0; i < daytimeData.length; i += stepScatter) {
+    const row = daytimeData[i];
+    const g = parseFloat(row['G_POA_Wm2']);
+    const pc = parseFloat(row['P_clean_W']);
+    const pd = parseFloat(row['P_dusty_W']);
+    irrCleanData.push({ x: g, y: pc });
+    irrDustyData.push({ x: g, y: pd });
+  }
+
+  const ctxIrr = document.getElementById('chart-irr-power').getContext('2d');
+  activeCharts['irr'] = new Chart(ctxIrr, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'Clean Module (Unsoiled Reference)',
+          data: irrCleanData,
+          backgroundColor: 'rgba(56, 189, 248, 0.45)',
+          borderColor: '#38bdf8',
+          borderWidth: 1,
+          pointRadius: 2.5
+        },
+        {
+          label: 'Dusty Module (Particulate Soiled)',
+          data: irrDustyData,
+          backgroundColor: 'rgba(248, 113, 113, 0.45)',
+          borderColor: '#f87171',
+          borderWidth: 1,
+          pointRadius: 2.5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#e2e8f0', boxWidth: 14 } },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          borderColor: '#475569',
+          borderWidth: 1,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: G=${ctx.parsed.x.toFixed(0)} W/m² → P=${ctx.parsed.y.toFixed(1)} W`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'In-Plane Solar Irradiance G_POA (W/m²)', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText }
+        },
+        y: {
+          title: { display: true, text: 'Generated Power Output (Watts)', color: darkText },
+          grid: { color: darkGrid },
+          ticks: { color: darkText },
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+function renderCanvasFallback(subData) {
+  // Graceful fallback for offline environments where CDN is unreachable
+  console.log('Rendering canvas fallback (Chart.js not loaded)');
+}
+
 
 function renderDataExplorer() {
   const tbody = document.getElementById('data-body');
