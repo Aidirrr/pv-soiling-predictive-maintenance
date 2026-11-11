@@ -193,9 +193,16 @@ Feature importance evaluated through total split gain variance reduction confirm
 │   ├── soiling_degradation_loss.svg    # Clean vs dusty power deficit time-series
 │   ├── subgroup_error_breakdown.svg    # High-temperature & irradiance stress breakdown
 │   └── feature_importance.svg          # XGBoost split-gain feature attribution chart
+├── models/
+│   ├── xgboost_model.pkl               # Serialized trained XGBoost model (Pickle binary)
+│   ├── random_forest_model.pkl         # Serialized trained Random Forest model (Pickle binary)
+│   ├── ridge_model.pkl                 # Serialized trained Ridge Regression model (Pickle binary)
+│   ├── model_metadata.json             # Model metrics, hyperparameters & feature gain (JSON)
+│   └── xgboost_trees.json              # Full 40-tree decision splits & thresholds (JSON)
 ├── dashboard.html                      # Standalone zero-dependency interactive dashboard
 ├── index.html                          # GitHub Pages production deployment entrypoint
 ├── Laghouat_2022_final-2.csv           # 4,368-hour experimental telemetry dataset
+├── predict.py                          # Instant CLI inference engine & cleaning alert dispatch
 ├── train_evaluate.py                   # Standalone, zero-dependency Python ML pipeline
 ├── .gitignore                          # Clean OS and Python cache exclusions
 └── README.md                           # Comprehensive documentation and empirical report
@@ -270,11 +277,55 @@ XGBoost Regressor (Selected)   | Train (N=1583)  | 0.63     | 0.86     | 0.9987
 [*] Execution completed successfully. Latency: < 20 μs per hourly sample.
 ```
 
+### 4. Run Instant Real-Time Inference (No Retraining Required)
+Use the pre-trained and serialized model file (`models/xgboost_model.pkl`) to make instant predictions without waiting for model training:
+
+```bash
+# Run with default midday Saharan conditions:
+python3 predict.py
+
+# Or specify custom live environmental sensor readings:
+python3 predict.py --gpoa 950 --tamb 36 --tcell 58 --rh 22 --ws 3.0 --cc 0 --dust 14.5
+```
+
+#### Example Inference & Alert Output:
+```
+============================================================================
+ ☀️  PV SOILING PREDICTIVE MAINTENANCE INFERENCE ENGINE
+     Laghouat Saharan Solar Testbed · Group 15 · Universiti Teknologi PETRONAS
+============================================================================
+[*] Loaded Model Architecture : XGBOOST (models/xgboost_model.pkl)
+
+[INPUT ENVIRONMENTAL TELEMETRY]
+  • Solar Irradiance (G_POA)      :  950.0 W/m²
+  • Ambient Air Temp (T_amb)      :   36.0 °C
+  • PV Cell Temperature (T_cell)  :   58.0 °C
+  • Thermal Gradient (Delta_T)    :   22.0 °C  (T_cell - T_amb)
+  • Surface Dust Density (PCHIP)  :   14.5 g/m²
+----------------------------------------------------------------------------
+[PREDICTION OUTPUT]
+  • Unsoiled Clean Reference Power :  70.04 Watts
+  • Dust-Affected Generated Power  :  49.12 Watts
+  • Predicted Soiling Deficit (ΔP) :  20.92 Watts (29.9% capacity loss)
+----------------------------------------------------------------------------
+[CONDITION-BASED MAINTENANCE DISPATCH STATUS]
+  🚨 [CRITICAL ALERT — IMMEDIATE CLEANING DISPATCH REQUIRED]
+     Reason: Soiling power loss (20.92 W) exceeds the 10.0 W threshold
+     under high irradiance (950 W/m²).
+     Action: Dispatch automated cleaning crew / robotic wash immediately.
+============================================================================
+```
+
+### 5. Inspecting Model Weights & Architecture in JSON
+If you want to audit or inspect the trained model without loading binary Python files:
+- **`models/model_metadata.json`**: Contains full empirical benchmark metrics across all models, training splits, and exact feature importance percentages.
+- **`models/xgboost_trees.json`**: Contains the complete decision tree architecture (split features, threshold values, and leaf predictions) for all 40 sequential boosting rounds.
+
 ---
 
 ## ⚡ Edge Microcontroller Deployment
 
-XGBoost achieves an average inference latency of **$0.018$ seconds across all 679 test observations** ($\a\approx 26.5\text{ microseconds}$ per sample). This lightweight computational footprint allows direct deployment on on-site solar data-loggers (e.g., Raspberry Pi 4, ESP32, or STM32 ARM microcontrollers) for autonomous real-time cleaning alerts without cloud dependency.
+XGBoost achieves an average inference latency of **$0.018$ seconds across all 679 test observations** ($\approx 26.5\text{ microseconds}$ per sample). This lightweight computational footprint allows direct deployment on on-site solar data-loggers (e.g., Raspberry Pi 4, ESP32, or STM32 ARM microcontrollers) for autonomous real-time cleaning alerts without cloud dependency.
 
 ---
 

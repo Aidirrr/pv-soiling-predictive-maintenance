@@ -11,6 +11,8 @@ Dataset: Laghouat, Algeria Solar PV & Dust Telemetry (Feb - Aug 2022)
 """
 
 import csv
+import json
+import pickle
 import math
 import os
 import random
@@ -344,6 +346,68 @@ class XGBoostProxyModel:
         return preds
 
 
+
+# -----------------------------------------------------------------------------
+# 4b. MODEL SERIALIZATION & PERSISTENCE (Saving & Loading Models)
+# -----------------------------------------------------------------------------
+def tree_to_dict(node):
+    if node is None:
+        return None
+    if node.left is None and node.right is None:
+        return {"val": round(node.val, 5)}
+    return {
+        "feat": node.feat,
+        "thresh": round(node.thresh, 5),
+        "gain": round(node.gain, 5),
+        "val": round(node.val, 5),
+        "left": tree_to_dict(node.left),
+        "right": tree_to_dict(node.right)
+    }
+
+def save_trained_models(models, feature_names, metrics_summary, output_dir="models"):
+    os.makedirs(output_dir, exist_ok=True)
+    print("\n" + "=" * 75)
+    print("STEP 5: SERIALIZING AND SAVING TRAINED MODELS TO DISK")
+    print("=" * 75)
+    
+    # 1. Save binary pickles for Python inference
+    for name, model in models.items():
+        pkl_path = os.path.join(output_dir, f"{name}_model.pkl")
+        with open(pkl_path, "wb") as f:
+            pickle.dump(model, f)
+        print(f"[*] Serialized binary model saved: {pkl_path} ({os.path.getsize(pkl_path):,} bytes)")
+
+    # 2. Save XGBoost tree structures in readable JSON
+    xgb = models.get("xgboost")
+    if xgb:
+        trees_json_path = os.path.join(output_dir, "xgboost_trees.json")
+        trees_data = {
+            "model_type": "XGBoostProxyRegressor",
+            "n_estimators": xgb.n_estimators,
+            "learning_rate": xgb.learning_rate,
+            "max_depth": xgb.max_depth,
+            "base_prediction_watts": round(xgb.base_pred, 5),
+            "feature_names": feature_names,
+            "trees": [tree_to_dict(t.root) for t in xgb.trees]
+        }
+        with open(trees_json_path, "w", encoding="utf-8") as f:
+            json.dump(trees_data, f, indent=2)
+        print(f"[*] Human-readable tree architecture saved: {trees_json_path} ({os.path.getsize(trees_json_path):,} bytes)")
+
+    # 3. Save comprehensive metadata
+    meta_json_path = os.path.join(output_dir, "model_metadata.json")
+    with open(meta_json_path, "w", encoding="utf-8") as f:
+        json.dump(metrics_summary, f, indent=2)
+    print(f"[*] Model evaluation metadata & feature importance saved: {meta_json_path}")
+    print(f"[✓] All model artifacts successfully stored in '{output_dir}/' directory.")
+
+def load_trained_model(filepath):
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Trained model file not found at: {filepath}")
+    with open(filepath, "rb") as f:
+        return pickle.load(f)
+
+
 # -----------------------------------------------------------------------------
 # 5. CROSS-VALIDATION & EVALUATION RUNNER
 # -----------------------------------------------------------------------------
@@ -449,6 +513,28 @@ def run_evaluation(X_train, y_train, X_test, y_test, feature_names, meta_test):
         print(f"  - {fname:<25}: {pct:6.2f}%")
         
     print("\n[*] Execution completed successfully. All metrics verified against report chapters.")
+    
+    # Package models and summary metrics for export
+    models_dict = {
+        "xgboost": xgb,
+        "random_forest": rf,
+        "ridge": lr
+    }
+    
+    metrics_summary = {
+        "project": "TEB3123 Machine Learning Group 15 - Solar PV Soiling Degradation",
+        "dataset": "Laghouat, Algeria (Feb - Aug 2022)",
+        "features": feature_names,
+        "performance": {
+            "baseline": {"train_mae": round(m_base_tr[0], 2), "test_mae": round(m_base_te[0], 2), "test_r2": round(m_base_te[2], 4)},
+            "ridge_linear_regression": {"train_mae": round(m_lr_tr[0], 2), "cv_mae": round(m_lr_cv[0], 2), "test_mae": round(m_lr_te[0], 2), "test_r2": round(m_lr_te[2], 4)},
+            "random_forest": {"train_mae": round(m_rf_tr[0], 2), "cv_mae": round(m_rf_cv[0], 2), "test_mae": round(m_rf_te[0], 2), "test_r2": round(m_rf_te[2], 4)},
+            "xgboost": {"train_mae": round(m_xgb_tr[0], 2), "cv_mae": round(m_xgb_cv[0], 2), "test_mae": round(m_xgb_te[0], 2), "test_r2": round(m_xgb_te[2], 4)}
+        },
+        "xgboost_feature_importance_pct": {fname: round(pct, 2) for fname, pct in sorted_feats}
+    }
+    
+    return models_dict, metrics_summary
 
 
 # -----------------------------------------------------------------------------
@@ -467,5 +553,9 @@ if __name__ == "__main__":
     daytime_rows = load_and_preprocess_data(dataset_file)
     X, y, feature_names, metadata = engineer_features(daytime_rows)
     X_train, y_train, X_test, y_test, meta_test = chronological_split(X, y, metadata, train_ratio=0.70)
-    run_evaluation(X_train, y_train, X_test, y_test, feature_names, meta_test)
+    models, summary = run_evaluation(X_train, y_train, X_test, y_test, feature_names, meta_test)
+    
+    # Export trained models to models/ directory
+    output_dir = os.path.join(current_dir, "models")
+    save_trained_models(models, feature_names, summary, output_dir=output_dir)
 

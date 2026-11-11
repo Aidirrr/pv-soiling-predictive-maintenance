@@ -1,0 +1,49 @@
+{
+  "project": "TEB3123 Machine Learning Group 15 - Solar PV Soiling Degradation",
+  "dataset": "Laghouat, Algeria (Feb - Aug 2022)",
+  "features": [
+    "G_POA",
+    "T_amb",
+    "T_cell",
+    "RH",
+    "wind_speed",
+    "cloud_cover",
+    "dust_density_PCHIP",
+    "Delta_T"
+  ],
+  "performance": {
+    "baseline": {
+      "train_mae": 21.35,
+      "test_mae": 20.45,
+      "test_r2": -0.0005
+    },
+    "ridge_linear_regression": {
+      "train_mae": 2.51,
+      "cv_mae": 3.35,
+      "test_mae": 3.58,
+      "test_r2": 0.9639
+    },
+    "random_forest": {
+      "train_mae": 0.91,
+      "cv_mae": 2.64,
+      "test_mae": 1.77,
+      "test_r2": 0.9877
+    },
+    "xgboost": {
+      "train_mae": 0.63,
+      "cv_mae": 2.0,
+      "test_mae": 1.24,
+      "test_r2": 0.9928
+    }
+  },
+  "xgboost_feature_importance_pct": {
+    "Delta_T": 90.81,
+    "G_POA": 6.69,
+    "dust_density_PCHIP": 1.65,
+    "T_amb": 0.83,
+    "cloud_cover": 0.02,
+    "wind_speed": 0.0,
+    "RH": 0.0,
+    "T_cell": 0.0
+  }
+}
