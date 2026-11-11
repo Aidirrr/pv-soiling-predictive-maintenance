@@ -203,3 +203,4 @@ python3 train_evaluate.py
 | :--- | :--- | :--- | :--- |
 | **Muhammad Khaidhir Bin Mohd Razin** | 22007399 | Problem definition, dataset ingestion, end-to-end ML pipeline (`train_evaluate.py`), model benchmarking, evaluation tables. | Codebase, Chapters 3, 5, 6, Infographic layout. |
 | **Nor Amirah Syahida Binti Baharuddin** | 22007850 | Feature engineering design, sustainability alignment with UTP Grand Challenge, literature benchmarking, practical recommendations. | Chapters 1, 2, 4, 7, 8, Executive Summary. |
+
