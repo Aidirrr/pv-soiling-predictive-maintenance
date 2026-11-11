@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 380" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="barGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+    <linearGradient id="barGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="barGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="950" height="380" rx="16" fill="url(#bgGrad3)" stroke="#334155" stroke-width="1.5"/>
+
+  <!-- Title -->
+  <text x="35" y="40" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700">XGBoost Feature Attribution &amp; Split Gain Ranking</text>
+  <text x="35" y="64" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">Relative Percentage of Total Impurity Variance Reduction | Explains Degradation Physics</text>
+
+  <!-- Row 1: Delta_T -->
+  <text x="240" y="116" fill="#f8fafc" font-family="sans-serif" font-size="14" font-weight="700" text-anchor="end">ΔT (T_cell - T_amb)</text>
+  <text x="240" y="133" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="end">Thermal Absorption Proxy (174 splits)</text>
+  <rect x="260" y="102" width="545" height="36" rx="6" fill="url(#barGrad1)"/>
+  <text x="815" y="125" fill="#34d399" font-family="sans-serif" font-size="15" font-weight="800">90.81%</text>
+
+  <!-- Row 2: G_POA -->
+  <text x="240" y="176" fill="#f8fafc" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="end">G_POA (Irradiance)</text>
+  <text x="240" y="193" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="end">In-Plane Sunlight (171 splits)</text>
+  <rect x="260" y="162" width="40" height="36" rx="6" fill="url(#barGrad2)"/>
+  <text x="310" y="185" fill="#38bdf8" font-family="sans-serif" font-size="14" font-weight="700">6.69%</text>
+
+  <!-- Row 3: Dust Density PCHIP -->
+  <text x="240" y="236" fill="#f8fafc" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="end">PCHIP Dust Density</text>
+  <text x="240" y="253" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="end">Surface Soiling Mass (142 splits)</text>
+  <rect x="260" y="222" width="12" height="36" rx="6" fill="url(#barGrad3)"/>
+  <text x="282" y="245" fill="#fbbf24" font-family="sans-serif" font-size="14" font-weight="700">1.65%</text>
+
+  <!-- Row 4: T_amb & Atmospheric Covariates -->
+  <text x="240" y="296" fill="#f8fafc" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="end">T_amb, Wind, Cloud, RH</text>
+  <text x="240" y="313" fill="#94a3b8" font-family="sans-serif" font-size="11" text-anchor="end">Atmospheric Macro-State (118 splits)</text>
+  <rect x="260" y="282" width="7" height="36" rx="4" fill="#64748b"/>
+  <text x="278" y="305" fill="#cbd5e1" font-family="sans-serif" font-size="14" font-weight="700">0.85%</text>
+
+  <!-- Explanatory Footer -->
+  <rect x="35" y="340" width="880" height="1" fill="#334155"/>
+  <text x="475" y="363" fill="#94a3b8" font-family="sans-serif" font-size="12" text-anchor="middle">Domain Takeaway: <tspan fill="#f8fafc" font-weight="600">ΔT and Irradiance</tspan> govern base photogeneration ceiling; <tspan fill="#fbbf24" font-weight="600">Surface Dust Density</tspan> drives the critical downward degradation trajectory.</text>
+</svg>

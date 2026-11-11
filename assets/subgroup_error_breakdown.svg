@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 420" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="lrBar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="xgbBar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="950" height="420" rx="16" fill="url(#bgGrad4)" stroke="#334155" stroke-width="1.5"/>
+
+  <!-- Title -->
+  <text x="35" y="38" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700">Subgroup Robustness: Linear Regression vs. XGBoost</text>
+  <text x="35" y="60" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">Mean Absolute Error (Watts) Across Severe Operational Regimes | Held-Out Test Set (N=679)</text>
+
+  <!-- Legend -->
+  <rect x="670" y="22" width="245" height="36" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+  <rect x="685" y="34" width="14" height="14" rx="3" fill="url(#lrBar)"/>
+  <text x="706" y="46" fill="#f8fafc" font-family="sans-serif" font-size="11">Linear Regression</text>
+  <rect x="815" y="34" width="14" height="14" rx="3" fill="url(#xgbBar)"/>
+  <text x="836" y="46" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="700">XGBoost</text>
+
+  <!-- Y Grid -->
+  <line x1="80" y1="90" x2="910" y2="90" stroke="#334155" stroke-dasharray="3" stroke-width="1"/>
+  <text x="70" y="94" fill="#64748b" font-family="sans-serif" font-size="11" text-anchor="end">5 W</text>
+  <line x1="80" y1="145" x2="910" y2="145" stroke="#334155" stroke-dasharray="3" stroke-width="1"/>
+  <text x="70" y="149" fill="#64748b" font-family="sans-serif" font-size="11" text-anchor="end">4 W</text>
+  <line x1="80" y1="200" x2="910" y2="200" stroke="#334155" stroke-dasharray="3" stroke-width="1"/>
+  <text x="70" y="204" fill="#64748b" font-family="sans-serif" font-size="11" text-anchor="end">3 W</text>
+  <line x1="80" y1="255" x2="910" y2="255" stroke="#334155" stroke-dasharray="3" stroke-width="1"/>
+  <text x="70" y="259" fill="#64748b" font-family="sans-serif" font-size="11" text-anchor="end">2 W</text>
+  <line x1="80" y1="310" x2="910" y2="310" stroke="#334155" stroke-dasharray="3" stroke-width="1"/>
+  <text x="70" y="314" fill="#64748b" font-family="sans-serif" font-size="11" text-anchor="end">1 W</text>
+  <line x1="80" y1="365" x2="910" y2="365" stroke="#475569" stroke-width="1.5"/>
+  <text x="70" y="369" fill="#64748b" font-family="sans-serif" font-size="11" text-anchor="end">0 W</text>
+
+  <!-- Scale: 55px per 1 W. Base is y=365 -->
+  <!-- Regime 1: Low G (<=200 W/m2) LR=2.67, XGB=0.69 -->
+  <rect x="130" y="218" width="34" height="147" rx="4" fill="url(#lrBar)"/>
+  <text x="147" y="210" fill="#fbbf24" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">2.67W</text>
+  <rect x="170" y="327" width="34" height="38" rx="4" fill="url(#xgbBar)"/>
+  <text x="187" y="319" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">0.69W</text>
+  <text x="167" y="385" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">Low Irradiance</text>
+  <text x="167" y="400" fill="#64748b" font-family="sans-serif" font-size="10" text-anchor="middle">(G ≤ 200 W/m², N=295)</text>
+
+  <!-- Regime 2: Med G (200-600) LR=2.40, XGB=1.43 -->
+  <rect x="290" y="233" width="34" height="132" rx="4" fill="url(#lrBar)"/>
+  <text x="307" y="225" fill="#fbbf24" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">2.40W</text>
+  <rect x="330" y="286" width="34" height="79" rx="4" fill="url(#xgbBar)"/>
+  <text x="347" y="278" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">1.43W</text>
+  <text x="327" y="385" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">Medium Irradiance</text>
+  <text x="327" y="400" fill="#64748b" font-family="sans-serif" font-size="10" text-anchor="middle">(200-600 W/m², N=99)</text>
+
+  <!-- Regime 3: High G (>600) LR=4.93, XGB=1.74 -->
+  <rect x="450" y="94" width="34" height="271" rx="4" fill="url(#lrBar)"/>
+  <text x="467" y="86" fill="#ef4444" font-family="sans-serif" font-size="11" font-weight="800" text-anchor="middle">4.93W</text>
+  <rect x="490" y="269" width="34" height="96" rx="4" fill="url(#xgbBar)"/>
+  <text x="507" y="261" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">1.74W</text>
+  <text x="487" y="385" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">High Irradiance</text>
+  <text x="487" y="400" fill="#64748b" font-family="sans-serif" font-size="10" text-anchor="middle">(G &gt; 600 W/m², N=285)</text>
+
+  <!-- Regime 4: High T_cell (>50 C) LR=4.49, XGB=1.73 -->
+  <rect x="610" y="118" width="34" height="247" rx="4" fill="url(#lrBar)"/>
+  <text x="627" y="110" fill="#ef4444" font-family="sans-serif" font-size="11" font-weight="800" text-anchor="middle">4.49W</text>
+  <rect x="650" y="270" width="34" height="95" rx="4" fill="url(#xgbBar)"/>
+  <text x="667" y="262" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">1.73W</text>
+  <text x="647" y="385" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">Severe Thermal Stress</text>
+  <text x="647" y="400" fill="#64748b" font-family="sans-serif" font-size="10" text-anchor="middle">(T_cell &gt; 50°C, N=335)</text>
+
+  <!-- Regime 5: Heavy Dust (>18 g/m2) LR=3.68, XGB=1.17 -->
+  <rect x="770" y="163" width="34" height="202" rx="4" fill="url(#lrBar)"/>
+  <text x="787" y="155" fill="#fbbf24" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">3.68W</text>
+  <rect x="810" y="301" width="34" height="64" rx="4" fill="url(#xgbBar)"/>
+  <text x="827" y="293" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="700" text-anchor="middle">1.17W</text>
+  <text x="807" y="385" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="600" text-anchor="middle">Heavy Surface Dust</text>
+  <text x="807" y="400" fill="#64748b" font-family="sans-serif" font-size="10" text-anchor="middle">(Dust &gt; 18 g/m², N=508)</text>
+</svg>
