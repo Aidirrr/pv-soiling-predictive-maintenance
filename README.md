@@ -68,7 +68,7 @@ In arid, desert environments like the Algerian Sahara, atmospheric dust and sand
 
 The repository provides an interactive web application allowing solar facility managers, researchers, and students to simulate operational scenarios in real time:
 
-> 🌐 **Live Demo:** Open [`dashboard.html`](dashboard.html) locally in any browser or view the GitHub Pages deployment via [`index.html`](index.html).
+> 🌐 **Live Demo:** Access the production deployment at **[pv-soiling-predictive-maintenance.netlify.app](https://pv-soiling-predictive-maintenance.netlify.app/)** or open [`dashboard.html`](dashboard.html) locally in any browser.
 
 <div align="center">
 

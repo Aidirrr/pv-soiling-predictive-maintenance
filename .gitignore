@@ -13,3 +13,7 @@ venv/
 env/
 .venv/
 
+# Netlify
+.netlify/
+
+
