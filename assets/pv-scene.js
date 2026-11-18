@@ -10,8 +10,8 @@ function setupSolarScene(sliders) {
   landscape.onload = () => refresh();
   landscape.src = 'assets/laghouat-landscape.jpg';
   const dateInput = byId('scene-datetime');
+  const liveClock = byId('scene-live');
   const siteOffset = 3600000; // Algeria uses UTC+1 all year.
-  dateInput.value = new Date(Date.now() + siteOffset).toISOString().slice(0,16);
   let sun, zoom = 1;
   function updateTime() {
     if (!dateInput.value || !dateInput.validity.valid) return;
@@ -29,16 +29,34 @@ function setupSolarScene(sliders) {
     const north = Math.sin(decl)*Math.cos(latitude) - Math.cos(decl)*Math.sin(latitude)*Math.cos(angle);
     const up = Math.sin(decl)*Math.sin(latitude) + Math.cos(decl)*Math.cos(latitude)*Math.cos(angle);
     sun = { east, north, up, daylight: Math.min(1,Math.max(0,(up+.12)/.43)) };
-    byId('scene-light').textContent = up > .13 ? 'Daylight' : up > -.105 ? 'Twilight' : 'Night';
+    byId('scene-light').textContent = up > 0 ? 'Daylight' : up > -.105 ? 'Twilight' : 'Night';
     byId('scene-day').textContent = date.toLocaleDateString('en-GB',{timeZone:'UTC',weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    byId('scene-clock-time').textContent = dateInput.value.slice(11,16) + ' · Laghouat';
+    byId('scene-clock-time').textContent = dateInput.value.slice(11,16) + (liveClock.checked ? ' · Live' : ' · Manual') + ' · Laghouat';
     refresh();
   }
   dateInput.addEventListener('input', updateTime);
+  function syncClock() {
+    if (!liveClock.checked) return;
+    dateInput.value = new Date(Date.now() + siteOffset).toISOString().slice(0,16);
+    updateTime();
+  }
+  liveClock.onchange = () => {
+    dateInput.disabled = liveClock.checked;
+    if (liveClock.checked) syncClock();
+    else updateTime();
+  };
+  function scheduleMinute() {
+    syncClock();
+    setTimeout(scheduleMinute, 60000 - Date.now() % 60000);
+  }
   let state;
   let azimuth = -0.52, elevation = 0.34;
   let visible = false, frame = 0, last = 0, time = 0;
   let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clean = byId('scene-clean'), restore = byId('scene-restore');
+  const progress = byId('wash-progress'), washTitle = byId('wash-title');
+  let washPhase = 'idle', savedDust = 0, washProgress = 0, recommended = false;
+  let windTravel = 0;
 
   for (const [key, title, unit] of [
     ['ws', 'Wind speed', 'm/s'], ['cc', 'Cloud cover', '%'], ['dust', 'Dust density', 'g/m²']
@@ -63,9 +81,46 @@ function setupSolarScene(sliders) {
   function updateAlert() {
     const threshold = Number(limit.value);
     byId('scene-limit-value').textContent = threshold.toFixed(1) + ' g/m²';
-    cleaningAlerts(state, threshold);
+    recommended = cleaningAlerts(state, threshold) > 0;
+    const canClean = recommended && washPhase === 'idle';
+    for (const button of [clean, byId('predict-clean'), byId('notice-clean')]) button.hidden = !canClean;
+    byId('wash-bar').hidden = !canClean && washPhase === 'idle';
+    restore.hidden = washPhase === 'idle';
+    progress.hidden = washPhase !== 'washing';
+    washTitle.textContent = washPhase === 'washing' ? 'Crew cleaning the array' :
+      washPhase === 'clean' ? 'All six panels clean' : 'Cleaning recommended';
   }
   limit.addEventListener('input', updateAlert);
+
+  function setDust(value) {
+    sliders.dust.value = value;
+    sliders.dust.dispatchEvent(new Event('input'));
+  }
+  function finishWash() {
+    washPhase = 'clean';
+    washProgress = 1;
+    setDust(0);
+  }
+  function startWash() {
+    if (!recommended || washPhase !== 'idle') return;
+    savedDust = state.dust;
+    washProgress = progress.value = 0;
+    washPhase = 'washing';
+    byId('cleaning-notice').hidden = true;
+    switchTab('scene');
+    canvas.scrollIntoView({block:'center', behavior:'instant'});
+    restore.hidden = false;
+    restore.focus({preventScroll:true});
+    if (paused) finishWash();
+    else { updateAlert(); refresh(); }
+  }
+  for (const button of [clean, byId('predict-clean'), byId('notice-clean')]) button.onclick = startWash;
+  restore.onclick = () => {
+    washPhase = 'idle';
+    washProgress = 0;
+    setDust(savedDust);
+    if (!clean.hidden) clean.focus({preventScroll:true});
+  };
 
   // Repeatable textures keep individual dust grains fixed to the glass during orbit.
   function noise(i) {
@@ -74,7 +129,23 @@ function setupSolarScene(sliders) {
   }
   const panels = [];
   for (const z of [-2.4, 2.4]) {
-    for (const x of [-4.5, 0, 4.5]) panels.push({ x, z });
+    for (const [column,x] of [-4.5, 0, 4.5].entries()) panels.push({ x, z, column });
+  }
+  const motes = Array.from({length:160}, (_,i)=>({
+    offset:noise(i+19)*28, z:noise(i+52)*14-7, lift:noise(i+140)**2,
+    speed:.62+noise(i+280)*.62, phase:noise(i+390)*Math.PI*2, size:.009+.017*noise(i+490)
+  }));
+  // Layer translucent eddies into a reusable texture for windblown sand.
+  const plume = document.createElement('canvas');
+  plume.width = 220; plume.height = 64;
+  const plumeCtx = plume.getContext('2d');
+  for (let i=0;i<36;i++) {
+    const x=25+noise(i+81)*170, y=25+noise(i+160)*16, r=8+noise(i+170)*16;
+    const haze=plumeCtx.createRadialGradient(x,y,0,x,y,r);
+    haze.addColorStop(0,'rgba(208,175,125,.22)');
+    haze.addColorStop(1,'rgba(208,175,125,0)');
+    plumeCtx.fillStyle=haze;
+    plumeCtx.fillRect(x-r,y-r,2*r,2*r);
   }
 
   function draw() {
@@ -130,6 +201,14 @@ function setupSolarScene(sliders) {
       ctx.fillStyle='#b3a58e'; ctx.fillRect(0,horizon,w,h-horizon);
     }
     ctx.fillStyle='rgba(105,119,131,'+cloud*.44+')'; ctx.fillRect(0,0,w,h);
+    const dusk = Math.max(0,1-Math.abs(sun.up-.035)/.25)*(1-cloud*.65);
+    if (dusk) {
+      const warmth=ctx.createLinearGradient(0,0,0,h*.8);
+      warmth.addColorStop(0,'rgba(144,108,142,'+dusk*.18+')');
+      warmth.addColorStop(.42,'rgba(246,158,87,'+dusk*.43+')');
+      warmth.addColorStop(1,'rgba(202,138,91,0)');
+      ctx.fillStyle=warmth; ctx.fillRect(0,0,w,h);
+    }
     const ce=Math.cos(elevation), se=Math.sin(elevation);
     const focal=Math.min(w*1.37,h*2.4), distance=22/zoom;
     function project(x,y,z) {
@@ -151,9 +230,76 @@ function setupSolarScene(sliders) {
       ctx.moveTo(...a); ctx.lineTo(...b);
       ctx.strokeStyle=color; ctx.lineWidth=width; ctx.stroke();
     }
-    // Paint distant objects first, including the wind indicator.
+    // Boots, sleeves, tool and brush all use the same projection as the glass.
+    function drawWorker(worker) {
+      const {x,z,stroke} = worker;
+      const p=(dx,y,dz=0)=>project(x+dx,y,z+dz);
+      const scale=Math.hypot(...p(0,1).map((v,i)=>v-p(0,0)[i]));
+      function limb(a,b,color,width) { line(p(...a),p(...b),color,scale*width); }
+      function oval(a,rx,ry,color) {
+        const [cx,cy]=p(...a);
+        ctx.fillStyle=color; ctx.beginPath();
+        ctx.ellipse(cx,cy,scale*rx,scale*ry,0,0,Math.PI*2); ctx.fill();
+      }
+      ctx.save(); ctx.lineCap='round';
+      oval([0,.02],.32,.055,'rgba(41,38,31,.29)');
+      for (const side of [-1,1]) {
+        const hip=side*.10, foot=side*.23;
+        limb([hip,.9],[foot,.50,.05],'#293c4c',.17);
+        limb([foot,.50,.05],[foot,.12],'#354c59',.14);
+        limb([foot,.08],[foot,.075,.14],'#392e27',.16);
+      }
+      const lean=.12+.07*stroke;
+      limb([0,.91],[.02,1.40,lean],'#e59a2a',.38);
+      limb([0,1.06,.045],[.01,1.11,.057],'#edf1ae',.36);
+      oval([.025,1.61,lean],.128,.155,'#ae7752');
+      oval([.025,1.72,lean],.15,.10,'#ffce53');
+      oval([.025,1.69,lean+.035],.18,.035,'#edb539');
+      const reach=.42+.17*stroke;
+      for (const side of [-1,1]) {
+        const sx=side*.15;
+        limb([sx,1.38,lean],[sx*1.3,1.13,.25],'#506e7c',.105);
+        limb([sx*1.3,1.13,.25],[0,1.23+side*.08,reach+side*.13],'#c79069',.08);
+      }
+      const along=1.7+stroke*1.15;
+      const brushHeight=1.45+(along-1.85)*.40+.045;
+      limb([0,1.23,reach],[0,brushHeight,along],'#c1d3d2',.038);
+      limb([-.24,brushHeight,along],[.24,brushHeight,along],'#48a3a2',.095);
+      ctx.restore();
+    }
+    function drawWind(item) {
+      const {x,y,z,mote,isPlume}=item;
+      const [px,py]=project(x,y,z);
+      const scale=Math.hypot(...project(x,y+1,z).map((v,i)=>v-[px,py][i]));
+      // Fade at the edge of the field so particles enter and leave gradually.
+      const fade=Math.min(1,(14-Math.abs(x))/2);
+      if (isPlume) {
+        const end=project(x-1,y,z);
+        const width=scale*(3+wind*3);
+        ctx.save(); ctx.translate(px,py); ctx.rotate(Math.atan2(end[1]-py,end[0]-px));
+        ctx.globalAlpha=fade*wind*(.20+.23*mote.lift);
+        ctx.drawImage(plume,-width/2,-scale*.31,width,scale*.62); ctx.restore();
+      } else {
+        ctx.fillStyle='rgba(213,184,137,'+fade*(.23+.4*wind)+')';
+        ctx.beginPath(); ctx.arc(px,py,Math.max(.48,mote.size*scale),0,Math.PI*2); ctx.fill();
+      }
+    }
     const pole={x:7.2,z:3.8};
-    const objects=[...panels,pole].sort((a,b)=>(b.x-a.x)*sa+(b.z-a.z)*ca);
+    const objects=[...panels,pole];
+    for (const mote of motes.slice(0,Math.ceil(wind*motes.length))) {
+      const path=mote.offset+windTravel*mote.speed;
+      const wave=path*.77+mote.phase;
+      objects.push({mote,x:14-path%28,z:mote.z+.24*Math.sin(wave*.57),
+        y:.09+mote.lift*(.55+wind*2.1)+.09*Math.sin(wave),isPlume:mote.offset<2.2});
+    }
+    if (washPhase === 'washing') {
+      for (const z of [-2.4,2.4]) {
+        const pass=Math.min(washProgress*3,2.99999), col=Math.floor(pass), t=pass-col;
+        const x=-4.5+4.5*col-2+4*Math.min(1,t/.90)+.5*Math.max(0,(t-.90)/.10);
+        objects.push({x,z:z-1.85,worker:true,stroke:Math.sin(washProgress*32*Math.PI)});
+      }
+    }
+    objects.sort((a,b)=>(b.x-a.x)*sa+(b.z-a.z)*ca);
     for (const {x,z} of panels) {
       if (sun.up<=0) continue;
       const shadow=[[-2,-1.3],[2,-1.3],[2,1.3],[-2,1.3]].map(([u,v])=>{
@@ -167,6 +313,8 @@ function setupSolarScene(sliders) {
     }
     for(const object of objects) {
       const {x,z}=object;
+      if (object.mote) { drawWind(object); continue; }
+      if (object.worker) { drawWorker(object); continue; }
       if(object===pole) {
         const length=.35+wind*2, droop=1.1-wind*.98;
         line(project(x,0,z),project(x,3.5,z),'#52616a',2);
@@ -222,20 +370,27 @@ function setupSolarScene(sliders) {
       sheen.addColorStop(.58,'rgba(200,220,231,'+(glint+.08)+')');
       sheen.addColorStop(1,'rgba(101,151,184,.035)');
       polygon(face,sheen);
-      polygon(face,'rgba(205,167,108,'+dust*.55+')');
-      ctx.fillStyle='rgba(226,196,144,.8)';
-      for(let i=0;i<dust*180;i++) {
-        const pt=glass(noise(i+x+14)*3.9-1.95,noise(i+z+331)*2.48-1.24);
-        ctx.fillRect(pt[0],pt[1],Math.max(1,w/630),1.3);
+      const washed=washPhase==='washing' ? Math.min(1,Math.max(0,(washProgress*3-object.column)/.90)) : 0;
+      if (dust>0 && washed<1) {
+        const edge=-2+4*washed;
+        const dirty=[glass(edge,-1.3),face[1],face[2],glass(edge,1.3)];
+        const sediment=ctx.createLinearGradient(...glass(0,-1.3),...glass(0,1.3));
+        const opacity=Math.sqrt(dust);
+        sediment.addColorStop(0,'rgba(196,157,100,'+opacity*.91+')');
+        sediment.addColorStop(.2,'rgba(188,155,109,'+opacity*.68+')');
+        sediment.addColorStop(1,'rgba(209,180,136,'+opacity*.62+')');
+        polygon(dirty,sediment);
+        ctx.save(); ctx.clip();
+        ctx.fillStyle='rgba(231,200,153,.70)';
+        for(let i=0;i<dust*240;i++) {
+          const pt=glass(noise(i+x+14)*3.97-1.985,noise(i+z+331)*2.55-1.275);
+          ctx.fillRect(pt[0],pt[1],Math.max(.85,w/800)*zoom,1.1*zoom);
+        }
+        ctx.restore();
       }
     }
-    for(let i=0;i<Math.ceil(wind*40);i++) {
-      const x=10-((noise(i+4)*20+time*(.8+wind*6))%20);
-      const y=.6+noise(i+70)*3, z=-5+noise(i+22)*9;
-      line(project(x,y,z),project(x-.2-wind,y+.04,z),'rgba(247,252,255,'+(.35+.32*wind)+')',1+wind);
-    }
     if (sun.daylight < 1) {
-      ctx.fillStyle='rgba(8,19,42,'+(.87*(1-sun.daylight))+')';
+      ctx.fillStyle='rgba(8,19,42,'+(.79*(1-sun.daylight))+')';
       ctx.fillRect(0,0,w,h);
     }
 
@@ -244,10 +399,19 @@ function setupSolarScene(sliders) {
   function tick(now) {
     frame=0;
     if (!visible || document.hidden || !state) { last=0; return; }
-    if (!paused && last) time+=Math.min((now-last)/1000,.1);
+    if (!paused && last) {
+      const dt=Math.min((now-last)/1000,.1);
+      time+=dt;
+      windTravel+=dt*state.ws*.48*(.92+.19*Math.sin(time*.83)+.10*Math.sin(time*2.27));
+      if (washPhase==='washing') {
+        washProgress=Math.min(1,washProgress+dt/10);
+        progress.value=washProgress;
+        if (washProgress===1) finishWash();
+      }
+    }
     last=now;
     draw();
-    if (!paused) frame=requestAnimationFrame(tick);
+    if (!paused && !frame) frame=requestAnimationFrame(tick);
   }
   function refresh() {
     if (!frame && visible && !document.hidden) frame=requestAnimationFrame(tick);
@@ -258,7 +422,7 @@ function setupSolarScene(sliders) {
     refresh();
   }).observe(canvas);
   new ResizeObserver(refresh).observe(canvas);
-  document.addEventListener('visibilitychange',()=>{last=0; refresh();});
+  document.addEventListener('visibilitychange',()=>{last=0; if (!document.hidden) syncClock(); refresh();});
   function orbit(dx,dy) {
     azimuth+=dx;
     elevation=Math.max(.16,Math.min(.95,elevation+dy));
@@ -308,10 +472,15 @@ function setupSolarScene(sliders) {
   const pause=byId('scene-pause');
   function labelMotion() { pause.textContent=paused?'Resume motion':'Pause motion'; }
   labelMotion();
-  updateTime();
+  scheduleMinute();
   pause.onclick=()=>{paused=!paused; last=0; labelMotion(); refresh();};
 
   return conditions=>{
+    if (state && conditions.dust !== state.dust &&
+        (washPhase === 'washing' || (washPhase === 'clean' && conditions.dust !== 0))) {
+      washPhase = 'idle';
+      washProgress = 0;
+    }
     state=conditions;
     for(const [key,field] of Object.entries(fields)) {
       field.input.value=state[key];

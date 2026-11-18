@@ -293,6 +293,7 @@
           <div>
             <strong>Panel Status: Normal</strong>
             <div style="font-size:12px; margin-top:2px;">Soiling loss within acceptable range. No cleaning required.</div>
+            <button type="button" id="predict-clean" class="wash-button" hidden>Simulate cleaning</button>
           </div>
         </div>
       </div>
@@ -312,11 +313,17 @@
             <div class="zoom-group"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-level">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div>
           </div>
         </div>
+        <div class="wash-bar" id="wash-bar" hidden>
+          <div><strong id="wash-title" role="status">Cleaning recommended</strong><progress id="wash-progress" aria-label="Panel cleaning progress" max="1" value="0" hidden></progress></div>
+          <button type="button" id="scene-clean" class="wash-button">Simulate cleaning</button>
+          <button type="button" id="scene-restore" class="wash-button secondary" hidden>Restore dust</button>
+        </div>
         <div class="scene-metrics"><div>Predicted module power<strong id="scene-power">—</strong></div><div>Estimated soiling loss<strong id="scene-loss">—</strong></div></div>
       </div>
       <aside class="card scene-controls">
         <h3>Simulation time</h3>
-        <label class="scene-date">Laghouat, Algeria (UTC+1)<input type="datetime-local" id="scene-datetime" required></label>
+        <label class="site-live"><input type="checkbox" id="scene-live" checked> Use live site time</label>
+        <label class="scene-date">Laghouat, Algeria (UTC+1)<input type="datetime-local" id="scene-datetime" disabled required></label>
         <p class="scene-note">Time sets the scene lighting. Irradiance is set in Live Predictor.</p>
         <hr><h3>Site conditions</h3>
         <div id="scene-sliders"></div>
@@ -377,7 +384,7 @@
         <h3 style="margin:0; font-size:15px; color:var(--text); text-transform:none;">📈 Telemetry & Degradation Visualizations</h3>
         <p style="font-size:12px; color:var(--text2); margin-top:2px;">Laghouat PV array multi-sensor telemetry, soiling power deficit dynamics, and thermal correlations</p>
       </div>
-      <div style="display:flex; gap:10px; align-items:center;">
+      <div class="chart-window-control" style="display:flex; gap:10px; align-items:center;">
         <label for="chart-window-select" style="font-size:12px; color:var(--text2); font-weight:600;">Time Window:</label>
         <select id="chart-window-select" style="padding:8px 14px; border-radius:8px; background:var(--surface2); color:var(--text); border:1px solid var(--border); font-size:12px; cursor:pointer;">
           <option value="july_week" selected>Peak Summer Soiling Window (01/07 to 07/07/2022)</option>
@@ -460,7 +467,7 @@
   <p style="margin-top:4px;">Muhammad Khaidhir Bin Mohd Razin (22007399) · Nor Amirah Syahida Binti Baharuddin (22007850)</p>
 </div>
 
-<aside id="cleaning-notice" role="alert" hidden><strong id="notice-title"></strong><span id="notice-detail"></span><button type="button" id="notice-close" aria-label="Dismiss cleaning notification">×</button></aside>
+<aside id="cleaning-notice" role="alert" hidden><strong id="notice-title"></strong><span id="notice-detail"></span><button type="button" id="notice-clean" class="wash-button">Simulate cleaning</button><button type="button" id="notice-close" aria-label="Dismiss cleaning notification">×</button></aside>
 <script src="assets/pv-alerts.js"></script>
 <script src="assets/pv-scene.js"></script>
 <script>

@@ -60,7 +60,7 @@ In arid, desert environments like the Algerian Sahara, atmospheric dust and sand
    - Inference requires only **$26.5\text{ microseconds}$ per hourly observation** ($0.018$ seconds for all 679 test hours). It can run directly on low-power on-site edge hardware (Raspberry Pi, ESP32, or STM32) without cloud subscriptions or cellular bandwidth.
 
 4. **Standalone Interactive Operations Web App (`dashboard.html` / `index.html`):**
-   - A single-file, zero-install interactive browser dashboard embedding the full 4,368-hour dataset. It trains ML models live in JavaScript, features interactive environmental sliders, displays automated condition-based cleaning alerts, and renders responsive Chart.js telemetry curves.
+   - A zero-install browser dashboard with the full 4,368-hour dataset embedded. It trains ML models in JavaScript and includes environmental sliders, cleaning alerts, interactive telemetry charts, and a 3D solar field.
 
 ---
 
@@ -98,6 +98,20 @@ The repository provides an interactive web application allowing solar facility m
 </p>
 
 </div>
+
+---
+
+## ☀️ 3D Solar View
+
+Explore six panels at the simulated Laghouat site in Algeria. Drag to orbit the array, then scroll or pinch to zoom. Lighting follows Laghouat’s local clock by default. Turn off **Use live site time** to explore sunrise, midday, or night. The clock controls the scene lighting. The Live Predictor’s irradiance slider controls the model input. [Open the 3D Solar View](https://pv-soiling-predictive-maintenance.netlify.app/#scene)
+
+![Two workers brushing dust from the six-panel array. Clean blue cells are visible beside dusty glass, with the site controls and predicted power alongside the scene.](assets/dashboard_solar_view.png)
+
+**Try a cleaning cycle**
+
+1. Set **Dust density** to 24 g/m² with the dust alert threshold at 15 g/m². Adjust **Wind speed** to see the windsock and drifting sand respond.
+2. Select **Simulate cleaning** when the recommendation appears. Two workers brush the rows clean. When they finish, dust density drops to zero and the dashboard recalculates predicted power and estimated loss.
+3. Select **Restore dust** to bring back the original dust level and compare the readings under the same conditions.
 
 ---
 
@@ -188,6 +202,7 @@ Feature importance evaluated through total split gain variance reduction confirm
 │   ├── dashboard_overview.png          # Overview dashboard KPI snapshot
 │   ├── dashboard_predictor.png         # Live prediction & cleaning alert interface
 │   ├── dashboard_analytics.png         # Diurnal curves & 10W cleaning threshold
+│   ├── dashboard_solar_view.png        # 3D array during a simulated cleaning cycle
 │   ├── system_architecture.svg         # End-to-end framework pipeline diagram
 │   ├── model_benchmark_comparison.svg  # Quantitative MAE/RMSE comparison chart
 │   ├── soiling_degradation_loss.svg    # Clean vs dusty power deficit time-series

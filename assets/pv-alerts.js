@@ -70,11 +70,12 @@ function setupCleaningAlerts() {
 
   return ({dust, loss, lossPct}, threshold) => {
     const dusty = dust >= threshold;
-    severity = loss >= 15 || lossPct > 25 ? 2 : (dusty || loss >= 8 || lossPct > 12 ? 1 : 0);
+    severity = dust === 0 ? 0 : loss >= 15 || lossPct > 25 ? 2 : (dusty || loss >= 8 || lossPct > 12 ? 1 : 0);
     title = ['Panel status normal', 'Panel cleaning recommended', 'Panel cleaning required'][severity];
     const dustText = 'Dust ' + dust.toFixed(1) + ' g/m² ' + (dusty ? 'reached' : 'is below') +
       ' the ' + threshold.toFixed(1) + ' g/m² threshold.';
-    detail = dustText + ' Estimated loss ' + loss.toFixed(1) + ' W (' + lossPct.toFixed(1) + '%).';
+    detail = dust === 0 ? 'The simulated glass is clean (0.0 g/m²).' :
+      dustText + ' Estimated loss ' + loss.toFixed(1) + ' W (' + lossPct.toFixed(1) + '%).';
     el('scene-alert').textContent = title + '. ' + detail;
     el('scene-alert').classList.toggle('high', severity > 0);
     const banner = el('maint-alert');
@@ -86,14 +87,15 @@ function setupCleaningAlerts() {
       announced = 0;
       notice.hidden = true;
       nativeNotice?.close();
-      return;
+      return severity;
     }
     el('notice-title').textContent = title;
     el('notice-detail').textContent = detail;
-    if (severity <= announced) return;
+    if (severity <= announced) return severity;
     announced = severity;
     notice.hidden = false;
     if (soundOn) ring();
     if (notificationsOn) sendNotice();
+    return severity;
   };
 }
