@@ -103,9 +103,13 @@ The repository provides an interactive web application allowing solar facility m
 
 ## ☀️ 3D Solar View
 
-Explore six panels at the simulated Laghouat site in Algeria. Drag to orbit the array, then scroll or pinch to zoom. Lighting follows Laghouat’s local clock by default. Turn off **Use live site time** to explore sunrise, midday, or night. The clock controls the scene lighting. The Live Predictor’s irradiance slider controls the model input. [Open the 3D Solar View](https://pv-soiling-predictive-maintenance.netlify.app/#scene)
+Use **Solar site** to switch between the six-panel Laghouat test array and Universiti Teknologi PETRONAS in Seri Iskandar, Malaysia. Drag to orbit, then scroll or pinch to zoom. Lighting follows the selected site's local clock. Turn off **Use live site time** to explore sunrise, midday, or night. The Live Predictor’s irradiance slider controls the model input. [Open the Laghouat array](https://pv-soiling-predictive-maintenance.netlify.app/#scene)
 
 ![Two workers brushing dust from the six-panel array. Clean blue cells are visible beside dusty glass, with the site controls and predicted power alongside the scene.](assets/dashboard_solar_view.png)
+
+The UTP scene models the circular Chancellor Complex roof and branching solar canopies. Orbit the campus to inspect the panel banks, then trigger a cleaning cycle on the circular roof. The layout is illustrative. Power and loss are simulated per module using the Laghouat-trained model. [Open the UTP simulation](https://pv-soiling-predictive-maintenance.netlify.app/?site=utp#scene) · [Gentari’s description of the campus installation](https://www.gentari.com/insight/gentari-and-universiti-teknologi-petronas-utp-advance-campus-solarisation-efforts-)
+
+![UTP rooftop simulation with two workers cleaning the Chancellor Complex panel banks and the branching solar canopies beyond.](assets/dashboard_utp.png)
 
 **Try a cleaning cycle**
 

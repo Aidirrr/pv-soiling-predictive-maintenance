@@ -1,5 +1,9 @@
 .scene-tab { background:transparent; border:0; border-bottom:3px solid transparent; font-family:inherit; }
 .scene-heading { margin:0 0 18px; }
+.scene-site-heading { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px 24px; }
+.scene-site-heading > div { flex:1 1 320px; }
+.site-picker { display:grid; gap:4px; color:var(--text2); font-size:13px; max-width:100%; }
+.site-picker select { min-height:44px; max-width:100%; font:inherit; font-size:16px; color:var(--text); color-scheme:dark; border:1px solid var(--border); border-radius:7px; background:var(--surface); padding:6px 8px; }
 .scene-heading h2 { font-size:24px; letter-spacing:-.6px; }
 .scene-heading p,.scene-controls label { color:var(--text2); font-size:14px; margin-top:5px; }
 .scene-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(250px, 300px); gap:16px; align-items:start; }

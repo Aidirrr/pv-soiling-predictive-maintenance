@@ -11,7 +11,15 @@ function setupSolarScene(sliders) {
   landscape.src = 'assets/laghouat-landscape.jpg';
   const dateInput = byId('scene-datetime');
   const liveClock = byId('scene-live');
-  const siteOffset = 3600000; // Algeria uses UTC+1 all year.
+  const sitePicker = byId('scene-site');
+  const sites = {
+    laghouat: {name:'Laghouat',zone:'Laghouat, Algeria (UTC+1)',offset:1,lat:33.8,lon:2.88,
+      azimuth:-.52,elevation:.34,description:'Explore how the Live Predictor responds to simulated site conditions.'},
+    utp: {name:'UTP',zone:'Seri Iskandar, Malaysia (UTC+8)',offset:8,lat:4.38,lon:100.97,
+      azimuth:-.16,elevation:.66,description:'Chancellor Complex, Seri Iskandar · Illustrative rooftop layout. Module estimates use the Laghouat-trained predictor.'}
+  };
+  sitePicker.value = new URLSearchParams(location.search).get('site') === 'utp' ? 'utp' : 'laghouat';
+  let site = sites[sitePicker.value], campusRenderer;
   let sun, zoom = 1;
   function updateTime() {
     if (!dateInput.value || !dateInput.validity.valid) return;
@@ -22,8 +30,8 @@ function setupSolarScene(sliders) {
       Date.UTC(date.getUTCFullYear(), 0, 0)) / 86400000;
     const seasonal = 2 * Math.PI * (day - 81) / 365;
     const equation = 9.87 * Math.sin(2 * seasonal) - 7.53 * Math.cos(seasonal) - 1.5 * Math.sin(seasonal);
-    const hour = date.getUTCHours() + (date.getUTCMinutes() + equation + 4 * (2.88 - 15)) / 60;
-    const angle = (hour - 12) * 15 * rad, latitude = 33.8 * rad;
+    const hour = date.getUTCHours() + (date.getUTCMinutes() + equation + 4 * (site.lon - 15*site.offset)) / 60;
+    const angle = (hour - 12) * 15 * rad, latitude = site.lat * rad;
     const decl = 23.44 * rad * Math.sin(seasonal);
     const east = -Math.cos(decl) * Math.sin(angle);
     const north = Math.sin(decl)*Math.cos(latitude) - Math.cos(decl)*Math.sin(latitude)*Math.cos(angle);
@@ -31,13 +39,13 @@ function setupSolarScene(sliders) {
     sun = { east, north, up, daylight: Math.min(1,Math.max(0,(up+.12)/.43)) };
     byId('scene-light').textContent = up > 0 ? 'Daylight' : up > -.105 ? 'Twilight' : 'Night';
     byId('scene-day').textContent = date.toLocaleDateString('en-GB',{timeZone:'UTC',weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    byId('scene-clock-time').textContent = dateInput.value.slice(11,16) + (liveClock.checked ? ' · Live' : ' · Manual') + ' · Laghouat';
+    byId('scene-clock-time').textContent = dateInput.value.slice(11,16) + (liveClock.checked ? ' · Live' : ' · Manual') + ' · ' + site.name;
     refresh();
   }
   dateInput.addEventListener('input', updateTime);
   function syncClock() {
     if (!liveClock.checked) return;
-    dateInput.value = new Date(Date.now() + siteOffset).toISOString().slice(0,16);
+    dateInput.value = new Date(Date.now() + site.offset*3600000).toISOString().slice(0,16);
     updateTime();
   }
   liveClock.onchange = () => {
@@ -50,7 +58,7 @@ function setupSolarScene(sliders) {
     setTimeout(scheduleMinute, 60000 - Date.now() % 60000);
   }
   let state;
-  let azimuth = -0.52, elevation = 0.34;
+  let azimuth = site.azimuth, elevation = site.elevation;
   let visible = false, frame = 0, last = 0, time = 0;
   let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clean = byId('scene-clean'), restore = byId('scene-restore');
@@ -88,7 +96,7 @@ function setupSolarScene(sliders) {
     restore.hidden = washPhase === 'idle';
     progress.hidden = washPhase !== 'washing';
     washTitle.textContent = washPhase === 'washing' ? 'Crew cleaning the array' :
-      washPhase === 'clean' ? 'All six panels clean' : 'Cleaning recommended';
+      washPhase === 'clean' ? (site === sites.utp ? 'Rooftop array clean' : 'All six panels clean') : 'Cleaning recommended';
   }
   limit.addEventListener('input', updateAlert);
 
@@ -158,6 +166,12 @@ function setupSolarScene(sliders) {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cloud = state.cc / 100, wind = state.ws / 15, dust = state.dust / 35;
+    if (site === sites.utp) {
+      campusRenderer ??= createUtpCampus();
+      campusRenderer(ctx,{w,h,dpr,azimuth,elevation,zoom,sun,cloud,dust,wind,time,windTravel,
+        washing:washPhase==='washing',progress:washProgress});
+      return;
+    }
     const horizon = h * (0.38 - elevation * 0.38);
     const sky = ctx.createLinearGradient(0, 0, 0, horizon + h*.13);
     sky.addColorStop(0, 'hsl(204  '+(64-cloud*43)+'% '+(61-cloud*18)+'%)');
@@ -468,10 +482,33 @@ function setupSolarScene(sliders) {
     const delta={ArrowLeft:[-.12,0],ArrowRight:[.12,0],ArrowUp:[0,.08],ArrowDown:[0,-.08]}[e.key];
     if (delta) { e.preventDefault(); orbit(...delta); }
   };
-  byId('scene-reset').onclick=()=>{azimuth=-.52; elevation=.34; setZoom(1);};
+  function resetCamera() { azimuth=site.azimuth; elevation=site.elevation; setZoom(1); }
+  byId('scene-reset').onclick=resetCamera;
+  function selectSite() {
+    site=sites[sitePicker.value];
+    byId('scene-zone').textContent=site.zone;
+    byId('scene-description').textContent=site.description;
+    canvas.setAttribute('aria-label',site.name+' solar array in 3D. Drag or use arrow keys to orbit. Pinch, scroll, or use plus and minus to zoom.');
+    resetCamera();
+    if (liveClock.checked || !dateInput.value) {
+      dateInput.value=new Date(Date.now()+site.offset*3600000).toISOString().slice(0,16);
+    }
+    updateTime();
+    if(state)updateAlert();
+  }
+  sitePicker.onchange=()=>{
+    selectSite();
+    if (location.protocol==='https:' || location.protocol==='http:') {
+      const url=new URL(location.href);
+      if(site===sites.utp)url.searchParams.set('site','utp');
+      else url.searchParams.delete('site');
+      history.replaceState(null,'',url);
+    }
+  };
   const pause=byId('scene-pause');
   function labelMotion() { pause.textContent=paused?'Resume motion':'Pause motion'; }
   labelMotion();
+  selectSite();
   scheduleMinute();
   pause.onclick=()=>{paused=!paused; last=0; labelMotion(); refresh();};
 

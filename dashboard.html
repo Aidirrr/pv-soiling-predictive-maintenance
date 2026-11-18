@@ -301,8 +301,13 @@
   </div>
 
   <section id="p-scene" class="panel" aria-labelledby="scene-title">
-    <header class="scene-heading"><h2 id="scene-title">3D Solar View</h2>
-      <p>Explore how the Live Predictor responds to simulated site conditions.</p></header>
+    <header class="scene-heading scene-site-heading">
+      <div><h2 id="scene-title">3D Solar View</h2><p id="scene-description">Explore how the Live Predictor responds to simulated site conditions.</p></div>
+      <label class="site-picker">Solar site<select id="scene-site">
+        <option value="laghouat">Laghouat · Test array</option>
+        <option value="utp">UTP · Chancellor Complex</option>
+      </select></label>
+    </header>
     <div class="scene-layout">
       <div class="scene-display">
         <div class="scene-stage">
@@ -323,7 +328,7 @@
       <aside class="card scene-controls">
         <h3>Simulation time</h3>
         <label class="site-live"><input type="checkbox" id="scene-live" checked> Use live site time</label>
-        <label class="scene-date">Laghouat, Algeria (UTC+1)<input type="datetime-local" id="scene-datetime" disabled required></label>
+        <label class="scene-date"><span id="scene-zone">Laghouat, Algeria (UTC+1)</span><input type="datetime-local" id="scene-datetime" disabled required></label>
         <p class="scene-note">Time sets the scene lighting. Irradiance is set in Live Predictor.</p>
         <hr><h3>Site conditions</h3>
         <div id="scene-sliders"></div>
@@ -469,6 +474,7 @@
 
 <aside id="cleaning-notice" role="alert" hidden><strong id="notice-title"></strong><span id="notice-detail"></span><button type="button" id="notice-clean" class="wash-button">Simulate cleaning</button><button type="button" id="notice-close" aria-label="Dismiss cleaning notification">×</button></aside>
 <script src="assets/pv-alerts.js"></script>
+<script src="assets/utp-campus.js"></script>
 <script src="assets/pv-scene.js"></script>
 <script>
 // ===========================================================================
