@@ -119,6 +119,7 @@
   .tooltip:hover::after { opacity:1; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="assets/pv-scene.css">
 </head>
 <body>
 
@@ -137,6 +138,7 @@
 <div class="tabs">
   <div class="tab active" data-panel="overview">📊 Overview</div>
   <div class="tab" data-panel="predict">🎛️ Live Predictor</div>
+  <button type="button" class="tab scene-tab" data-panel="scene">☀️ 3D Solar View</button>
   <div class="tab" data-panel="models">🏆 Model Comparison</div>
   <div class="tab" data-panel="charts">📈 Analytics</div>
   <div class="tab" data-panel="explorer">🔍 Data Explorer</div>
@@ -297,6 +299,38 @@
     </div>
   </div>
 
+  <section id="p-scene" class="panel" aria-labelledby="scene-title">
+    <header class="scene-heading"><h2 id="scene-title">3D Solar View</h2>
+      <p>Explore how the Live Predictor responds to simulated site conditions.</p></header>
+    <div class="scene-layout">
+      <div class="scene-display">
+        <div class="scene-stage">
+          <canvas id="solar-field" tabindex="0" aria-label="Solar array in 3D. Drag or use arrow keys to rotate. Scroll, pinch, or use plus and minus to zoom."></canvas>
+          <div class="scene-actions"><button id="scene-pause" type="button">Pause motion</button><button id="scene-reset" type="button">Reset view</button></div>
+          <div class="scene-clock"><span id="scene-light"></span><strong id="scene-day"></strong><span id="scene-clock-time"></span></div>
+          <div class="scene-camera"><span>Drag to orbit · Scroll or pinch to zoom</span>
+            <div class="zoom-group"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-level">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div>
+          </div>
+        </div>
+        <div class="scene-metrics"><div>Predicted module power<strong id="scene-power">—</strong></div><div>Estimated soiling loss<strong id="scene-loss">—</strong></div></div>
+      </div>
+      <aside class="card scene-controls">
+        <h3>Simulation time</h3>
+        <label class="scene-date">Laghouat, Algeria (UTC+1)<input type="datetime-local" id="scene-datetime" required></label>
+        <p class="scene-note">Time sets the scene lighting. Irradiance is set in Live Predictor.</p>
+        <hr><h3>Site conditions</h3>
+        <div id="scene-sliders"></div>
+        <hr>
+        <div class="slider-group"><label for="scene-limit">Dust alert threshold <span id="scene-limit-value"></span></label>
+          <input type="range" id="scene-limit" min="0" max="35" step="0.1" value="15">
+        </div>
+        <p id="scene-alert" role="status"></p>
+        <div class="alert-options"><button id="scene-sound" type="button" aria-pressed="false">Enable alarm sound</button><button id="scene-notify" type="button" aria-pressed="false">Enable notifications</button></div>
+        <p id="alert-feedback" class="scene-note" role="status"></p>
+      </aside>
+    </div>
+  </section>
+
   <!-- ========== PANEL 3: MODEL COMPARISON ========== -->
   <div id="p-models" class="panel">
     <div class="card" style="margin-bottom:20px;">
@@ -426,6 +460,9 @@
   <p style="margin-top:4px;">Muhammad Khaidhir Bin Mohd Razin (22007399) · Nor Amirah Syahida Binti Baharuddin (22007850)</p>
 </div>
 
+<aside id="cleaning-notice" role="alert" hidden><strong id="notice-title"></strong><span id="notice-detail"></span><button type="button" id="notice-close" aria-label="Dismiss cleaning notification">×</button></aside>
+<script src="assets/pv-alerts.js"></script>
+<script src="assets/pv-scene.js"></script>
 <script>
 // ===========================================================================
 // PURE JS ML MODELS (mirrors train_evaluate.py logic)
@@ -5788,6 +5825,8 @@ function setupPrediction() {
     dust: document.getElementById('v-dust'),
   };
 
+  const updateScene = setupSolarScene(sliders);
+
   function predict() {
     const g = parseFloat(sliders.gpoa.value);
     const ta = parseFloat(sliders.tamb.value);
@@ -5822,23 +5861,14 @@ function setupPrediction() {
     const loss = Math.max(0, cleanEst - predXGB);
     document.getElementById('pred-loss').textContent = loss.toFixed(1);
 
+
+
     // Color the result card
     const rc = document.getElementById('rc-dusty');
     rc.className = 'result-card ' + (predXGB > 40 ? 'normal' : predXGB > 15 ? 'warning' : 'critical');
 
-    // Maintenance alert
-    const alert = document.getElementById('maint-alert');
-    const lossPct = cleanEst > 0 ? (loss / cleanEst * 100) : 0;
-    if (loss >= 15 || lossPct > 25) {
-      alert.className = 'alert-banner crit';
-      alert.innerHTML = `<span class="alert-icon">🚨</span><div><strong>CRITICAL: Immediate Cleaning Required</strong><div style="font-size:12px; margin-top:2px;">Soiling loss: ${loss.toFixed(1)}W (${lossPct.toFixed(1)}% degradation). Schedule emergency panel cleaning.</div></div>`;
-    } else if (loss >= 8 || lossPct > 12) {
-      alert.className = 'alert-banner warn';
-      alert.innerHTML = `<span class="alert-icon">⚠️</span><div><strong>WARNING: Cleaning Recommended</strong><div style="font-size:12px; margin-top:2px;">Soiling loss: ${loss.toFixed(1)}W (${lossPct.toFixed(1)}% degradation). Schedule preventive cleaning within 48 hours.</div></div>`;
-    } else {
-      alert.className = 'alert-banner ok';
-      alert.innerHTML = `<span class="alert-icon">✅</span><div><strong>Panel Status: Normal</strong><div style="font-size:12px; margin-top:2px;">Soiling loss: ${loss.toFixed(1)}W (${lossPct.toFixed(1)}% degradation). No cleaning required.</div></div>`;
-    }
+    const lossPct = cleanEst > 0 ? loss / cleanEst * 100 : 0;
+    updateScene({ ws, cc, dust, power: predXGB, loss, lossPct });
   }
 
   Object.values(sliders).forEach(s => s.addEventListener('input', predict));
