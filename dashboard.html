@@ -288,7 +288,7 @@
           </div>
         </div>
 
-        <div class="alert-banner ok" id="maint-alert">
+        <div class="alert-banner ok" id="maint-alert" hidden>
           <span class="alert-icon">✅</span>
           <div>
             <strong>Panel Status: Normal</strong>
@@ -318,25 +318,34 @@
             <div class="zoom-group"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-level">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div>
           </div>
         </div>
+        <div class="quick-weather" id="quick-weather" hidden>
+          <div class="weather-choices" role="group" aria-label="Choose a site condition">
+            <button type="button" data-field="ws" aria-pressed="true">Wind</button>
+            <button type="button" data-field="cc" aria-pressed="false">Cloud</button>
+            <button type="button" data-field="dust" aria-pressed="false">Dust</button>
+          </div>
+          <div id="quick-range"></div>
+        </div>
         <div class="wash-bar" id="wash-bar" hidden>
           <div><strong id="wash-title" role="status">Cleaning recommended</strong><progress id="wash-progress" aria-label="Panel cleaning progress" max="1" value="0" hidden></progress></div>
           <button type="button" id="scene-clean" class="wash-button">Simulate cleaning</button>
           <button type="button" id="scene-restore" class="wash-button secondary" hidden>Restore dust</button>
         </div>
         <div class="scene-metrics"><div>Predicted module power<strong id="scene-power">—</strong></div><div>Estimated soiling loss<strong id="scene-loss">—</strong></div></div>
+        <div id="mobile-notice-slot"></div>
       </div>
       <aside class="card scene-controls">
         <h3>Simulation time</h3>
         <label class="site-live"><input type="checkbox" id="scene-live" checked> Use live site time</label>
         <label class="scene-date"><span id="scene-zone">Laghouat, Algeria (UTC+1)</span><input type="datetime-local" id="scene-datetime" disabled required></label>
         <p class="scene-note">Time sets the scene lighting. Irradiance is set in Live Predictor.</p>
-        <hr><h3>Site conditions</h3>
-        <div id="scene-sliders"></div>
+        <div id="standard-weather"><hr><h3>Site conditions</h3>
+        <div id="scene-sliders"></div></div>
         <hr>
         <div class="slider-group"><label for="scene-limit">Dust alert threshold <span id="scene-limit-value"></span></label>
           <input type="range" id="scene-limit" min="0" max="35" step="0.1" value="15">
         </div>
-        <p id="scene-alert" role="status"></p>
+        <p id="scene-alert" role="status" hidden></p>
         <div class="alert-options"><button id="scene-sound" type="button" aria-pressed="false">Enable alarm sound</button><button id="scene-notify" type="button" aria-pressed="false">Enable notifications</button></div>
         <p id="alert-feedback" class="scene-note" role="status"></p>
       </aside>
@@ -492,6 +501,7 @@ let trainedModels = {};
 function switchTab(panelName) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.panel === panelName));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'p-' + panelName));
+  document.dispatchEvent(new Event('dashboardtabchange'));
   if (panelName === 'charts') {
     setTimeout(() => renderCharts(), 30);
   }

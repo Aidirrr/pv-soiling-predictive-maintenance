@@ -1,3 +1,28 @@
+// Short drifting trails make the wind field legible at both sites and at phone scale.
+function drawSolarGusts(ctx,project,wind,travel,base,zoom,depth) {
+  if(wind<=0)return;
+  ctx.save();ctx.lineCap='round';
+  const count=Math.ceil(5+wind*20);
+  for(let i=0;i<count;i++){
+    const path=i*7.327+travel*(.74+(i%5)*.105);
+    const x=9-(path%18), z=-5+(i*3.721)%10;
+    const y=base+.35+(i*1.373)%1.85;
+    const length=.38+wind*1.32, fade=Math.min(1,(9-Math.abs(x))/1.8,wind*6);
+    if(depth && depth(x-length,y+.35,z)<2)continue;
+    function at(t){
+      const wave=path*.65+t*2.4+i;
+      return project(x-length*t,y+.13*Math.sin(wave),z+.23*Math.sin(wave*.77));
+    }
+    const a=at(0),b=at(.5),c=at(1);
+    ctx.beginPath();ctx.moveTo(...a);ctx.quadraticCurveTo(...b,...c);
+    ctx.lineWidth=2.3*zoom;ctx.strokeStyle='rgba(49,75,82,'+fade*.36+')';ctx.stroke();
+    ctx.lineWidth=Math.max(1.1,1.4*zoom);ctx.strokeStyle='rgba(240,254,255,'+fade*(.58+wind*.28)+')';ctx.stroke();
+    ctx.beginPath();ctx.arc(...c,Math.max(.9,zoom*1.15),0,2*Math.PI);
+    ctx.fillStyle='rgba(255,242,211,'+fade*.91+')';ctx.fill();
+  }
+  ctx.restore();
+}
+
 // Software perspective projection keeps the scene usable from a local file.
 function setupSolarScene(sliders) {
   const byId = id => document.getElementById(id);
@@ -16,7 +41,7 @@ function setupSolarScene(sliders) {
     laghouat: {name:'Laghouat',zone:'Laghouat, Algeria (UTC+1)',offset:1,lat:33.8,lon:2.88,
       azimuth:-.52,elevation:.34,description:'Explore how the Live Predictor responds to simulated site conditions.'},
     utp: {name:'UTP',zone:'Seri Iskandar, Malaysia (UTC+8)',offset:8,lat:4.38,lon:100.97,
-      azimuth:-.16,elevation:.66,description:'Chancellor Complex, Seri Iskandar · Illustrative rooftop layout. Module estimates use the Laghouat-trained predictor.'}
+      azimuth:-.23,elevation:.32,description:'Chancellor Complex, Seri Iskandar · Illustrative rooftop layout. Module estimates use the Laghouat-trained predictor.'}
   };
   sitePicker.value = new URLSearchParams(location.search).get('site') === 'utp' ? 'utp' : 'laghouat';
   let site = sites[sitePicker.value], campusRenderer;
@@ -79,12 +104,29 @@ function setupSolarScene(sliders) {
     label.append(title, value);
     group.append(label, input);
     byId('scene-sliders').append(group);
-    fields[key] = { input, value, unit };
+    fields[key] = { input, value, unit, group };
     input.addEventListener('input', () => {
       sliders[key].value = input.value;
       sliders[key].dispatchEvent(new Event('input'));
     });
   }
+  const compactWeather=matchMedia('(max-width:900px), (pointer:coarse) and (max-height:540px)');
+  const weatherChoices=byId('quick-weather').querySelectorAll('[data-field]');
+  let activeField='ws';
+  function arrangeWeather() {
+    const compact=compactWeather.matches;
+    byId('quick-weather').hidden=!compact;
+    byId('standard-weather').hidden=compact;
+    for (const [key,field] of Object.entries(fields)) {
+      const target=compact ? byId('quick-range') : byId('scene-sliders');
+      if (field.group.parentNode!==target) target.append(field.group);
+      field.group.hidden=compact && key!==activeField;
+    }
+    weatherChoices.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.field===activeField)));
+  }
+  weatherChoices.forEach(button=>button.onclick=()=>{activeField=button.dataset.field;arrangeWeather();});
+  compactWeather.addEventListener('change',arrangeWeather);
+  arrangeWeather();
 
   function updateAlert() {
     const threshold = Number(limit.value);
@@ -167,7 +209,7 @@ function setupSolarScene(sliders) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cloud = state.cc / 100, wind = state.ws / 15, dust = state.dust / 35;
     if (site === sites.utp) {
-      campusRenderer ??= createUtpCampus();
+      campusRenderer ??= createUtpCampus(refresh);
       campusRenderer(ctx,{w,h,dpr,azimuth,elevation,zoom,sun,cloud,dust,wind,time,windTravel,
         washing:washPhase==='washing',progress:washProgress});
       return;
@@ -408,6 +450,7 @@ function setupSolarScene(sliders) {
       ctx.fillRect(0,0,w,h);
     }
 
+    drawSolarGusts(ctx,project,wind,windTravel,1.15,zoom);
   }
 
   function tick(now) {

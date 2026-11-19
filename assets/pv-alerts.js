@@ -3,8 +3,22 @@ function setupCleaningAlerts() {
   const el = id => document.getElementById(id);
   const sound = el('scene-sound'), notify = el('scene-notify');
   const feedback = el('alert-feedback'), notice = el('cleaning-notice');
-  let audio, nativeNotice, soundOn = false, notificationsOn = false;
+  let audio, nativeNotice, soundOn = false, notificationsOn = false, interacted = false;
   let severity = 0, announced = 0, title = '', detail = '';
+  for (const panel of [el('p-scene'),el('p-predict')]) {
+    panel.addEventListener('input',event=>{
+      if (panel.classList.contains('active') && event.target.matches('input[type=range]')) interacted=true;
+    },true);
+  }
+  const compact=matchMedia('(max-width:900px), (pointer:coarse) and (max-height:540px)');
+  function placeNotice() {
+    const inScene=el('p-scene').classList.contains('active');
+    const parent=compact.matches && inScene ? el('mobile-notice-slot') : document.body;
+    if (notice.parentNode!==parent) parent.append(notice);
+  }
+  compact.addEventListener('change',placeNotice);
+  document.addEventListener('dashboardtabchange',()=>{ notice.hidden=true; placeNotice(); });
+  placeNotice();
 
   function ring() {
     if (!audio || audio.state !== 'running') return;
@@ -40,7 +54,7 @@ function setupCleaningAlerts() {
       if (!soundOn) {
         audio ??= new (window.AudioContext || window.webkitAudioContext)();
         await audio.resume();
-        if (severity) ring();
+        if (interacted && severity) ring();
       }
       soundOn = !soundOn;
       sound.setAttribute('aria-pressed', String(soundOn));
@@ -61,7 +75,7 @@ function setupCleaningAlerts() {
       setNotifications(permission === 'granted');
       feedback.textContent = notificationsOn ? 'Desktop notifications enabled for this session.' :
         'Desktop notifications are off. You can allow them in browser site settings.';
-      if (notificationsOn && severity) sendNotice();
+      if (notificationsOn && interacted && severity) sendNotice();
     } catch {
       feedback.textContent = 'Browser notifications are unavailable. Cleaning alerts appear here.';
     } finally { notify.disabled = false; }
@@ -79,10 +93,13 @@ function setupCleaningAlerts() {
     el('scene-alert').textContent = title + '. ' + detail;
     el('scene-alert').classList.toggle('high', severity > 0);
     const banner = el('maint-alert');
+    banner.hidden = !interacted;
+    el('scene-alert').hidden = !interacted;
     banner.className = 'alert-banner ' + ['ok', 'warn', 'crit'][severity];
     banner.querySelector('.alert-icon').textContent = ['✅', '⚠️', '🚨'][severity];
     banner.querySelector('strong').textContent = title;
     banner.querySelector('strong + div').textContent = detail;
+    if (!interacted) return 0;
     if (!severity) {
       announced = 0;
       notice.hidden = true;
